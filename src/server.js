@@ -96,11 +96,11 @@ app.get('/api/listings/:id', async (req, res) => {
   }
 });
 // Route to upload-image
-     
+ // Route to Create a New Post with feature Image
 // Create a storage engine for Multer
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, 'smartedgeus', 'smartedgeus', 'src', 'assets')); // Specify the destination folder where the images will be stored
+    cb(null, path.join(__dirname, '..', '..', 'smartedgeus', 'src', 'assets')); // Specify the destination folder where the images will be stored
   },
   filename: function (req, file, cb) {
     // Generate a unique filename for the uploaded image
@@ -131,64 +131,53 @@ const upload = multer({
 // Create an Express router
 const router = express.Router();
 
-// Define the route to handle the image upload
-let uploadedImagePath = '';
+// Define the route to handle the image upload and create a new article
+router.post('/dashboard/create-post', upload.single('image'), async (req, res) => {
+  try {
+    const articleUuid = auuId();
+    const { title = '', briefDescription = '', description = '', category = '' } = req.body;
+    const auuId = '12345';
+    const ts = Date.now();
+    const date_ob = new Date(ts);
+    const date = date_ob.getDate();
+    const month = date_ob.getMonth() + 1;
+    const year = date_ob.getFullYear();
+    const hour = date_ob.getHours();
+    const minute = date_ob.getMinutes();
+    const seconds = date_ob.getSeconds();
+    const dateCreated = year + '-' + (month < 10 ? '0' + month : month) + '-' + (date < 10 ? '0' + date : date) + ' ' + hour + ':' + minute;
+    const dateLastModified = null;
+    const views = 0;
 
-router.post('/upload-image', upload.single('image'), (req, res) => {
-  // Retrieve the file path of the uploaded image
-  const imagePath = req.file.path;
+    // Retrieve the file path of the uploaded image
+    const imagePath = req.file ? req.file.path : '';
 
-  // Construct the image URL or any desired format
-  const imageUrl = `/assets/${req.file.filename}`;
+    await db.query(
+      'INSERT INTO articles (article_uuid, auuid, title, brief_description, description, image_path, category, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [articleUuid, auuId, title, briefDescription, description, imagePath, category, dateCreated, dateLastModified, views]
+    );
 
-  // Store the image path in the variable
-  uploadedImagePath = imageUrl;
-
-  // Return the image path or URL in the response
-  res.json({ imagePath: imageUrl });
+    res.json({
+      articleUuid,
+      auuId,
+      title,
+      briefDescription,
+      description,
+      imagePath,
+      category,
+      dateCreated,
+      dateLastModified,
+      views,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
 });
 
-  // route to create a new article
-app.post('/api/dashboard/create-post/', async (req, res) => {
-    try {
-      const articleUuid = auuId();
-      const { title = '', briefDescription = '', description = '', imagePath = '', category = '' } = req.body;
-      const auuId = '12345';
-      const ts = Date.now();
-      const date_ob = new Date(ts);
-      const date = date_ob.getDate();
-      const month = date_ob.getMonth() + 1;
-      const year = date_ob.getFullYear();
-      const hour = date_ob.getHours();
-      const minute = date_ob.getMinutes();
-      const seconds = date_ob.getSeconds();
-      const dateCreated = year + '-' + (month < 10 ? '0' + month : month) + '-' + (date < 10 ? '0' + date : date) + ' ' + hour + ':' + minute;        
-      const dateLastModified = null;
-      const views = 0;
-  
-      await db.query(
-        'INSERT INTO articles (article_uuid, auuid, title, brief_description, description, image_path, category, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [articleUuid, auuId, title, briefDescription, description, imagePath, category, dateCreated, dateLastModified, views]
-      );
-  
-      res.json({
-        articleUuid,
-        auuId,
-        title,
-        briefDescription,
-        description,
-        imagePath,
-        category,
-        dateCreated,
-        dateLastModified,
-        views,
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Server Error');
-    }
-  });
-  
+// Register the router with your Express app
+app.use('/api', router);
+
 
 // Route to get image and post detail
 app.get('/api/image/:article_uuid', async (req, res) => {
