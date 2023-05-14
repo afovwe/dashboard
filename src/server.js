@@ -135,7 +135,7 @@ const router = express.Router();
 router.post('/dashboard/create-post', upload.single('image'), async (req, res) => {
   try {
     const articleUuid = uuidv4();
-    const { title = '', briefDescription = '', description = '', category = '' } = req.body;
+    const { title = '', brief_description = '', description = '', category = '' } = req.body;
     const auuId = '12345';
     const ts = Date.now();
     const date_ob = new Date(ts);
@@ -154,14 +154,14 @@ router.post('/dashboard/create-post', upload.single('image'), async (req, res) =
 
     await db.query(
       'INSERT INTO articles (article_uuid, auuid, title, brief_description, description, image_path, category, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [articleUuid, auuId, title, briefDescription, description, imagePath, category, dateCreated, dateLastModified, views]
+      [articleUuid, auuId, title, brief_description, description, imagePath, category, dateCreated, dateLastModified, views]
     );
 
     res.json({
       articleUuid,
       auuId,
       title,
-      briefDescription,
+      brief_description,
       description,
       imagePath,
       category,
