@@ -4,7 +4,7 @@ import path from 'path';
 import { db } from './database';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-
+import { v4 as uuidv4 } from 'uuid';
 const app = express();
 
 // Serve static files from the public/images directory
@@ -27,7 +27,7 @@ app.get('/api/listings', async (req, res) => {
 // route to select all articles for Admin
 app.get('/api/dashboard/posts', async (req, res) => {
     try {
-      const [rows, fields] = await db.query('SELECT * FROM articles');
+      const [rows, fields] = await db.query('SELECT * FROM articles ORDER BY id  DESC');
       res.json(rows);
     } catch (error) {
       console.error(error);
@@ -95,7 +95,7 @@ app.get('/api/listings/:id', async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
-// Route to upload-image
+
  // Route to Create a New Post with feature Image
 // Create a storage engine for Multer
 const storage = multer.diskStorage({
@@ -134,7 +134,7 @@ const router = express.Router();
 // Define the route to handle the image upload and create a new article
 router.post('/dashboard/create-post', upload.single('image'), async (req, res) => {
   try {
-    const articleUuid = auuId();
+    const articleUuid = uuidv4();
     const { title = '', briefDescription = '', description = '', category = '' } = req.body;
     const auuId = '12345';
     const ts = Date.now();
