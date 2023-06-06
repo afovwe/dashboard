@@ -265,6 +265,7 @@ router.get('/sponsor/:usernameCid', async (req, res) => {
 
     const selectedConsultant = {
       fullName: consultant.fname,
+      usernameCid: consultant.username_cid,
       teamId: consultant.team_id,
       rank: consultant.rank
     };
@@ -329,6 +330,10 @@ router.post('/consultants/add-signup', async (req, res) => {
 // Register the router with your Express app
 
 app.use('/api', router);
+
+
+
+
 
 // Define the route to handle editing consultant details 
 //Tested with postman and it worked
@@ -486,6 +491,9 @@ app.delete('/api/consultants/accounts/:consultant_uuid', async (req, res) => {
     res.status(500).json({ error: 'Server Error' });
   }
 });
+
+/*===================================CONSULTANT ROUTES====================================== */
+
 
 
 // Register the router with your Express app
