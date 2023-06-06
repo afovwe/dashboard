@@ -105,28 +105,10 @@ app.get('/api/listing/:propertyUuid', async (req, res) => {
   }
 });
 
-// route to select all listings for Admin
-app.get('/api/dashboard/posts', async (req, res) => {
-    try {
-      const [rows, fields] = await db.query('SELECT * FROM listings ORDER BY id  DESC');
-      res.json(rows);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Server Error');
-    }
-  });
 
 
-// route to select listings by category
-app.get('/api/dashboard/post/:category', async (req, res) => {
-  try {
-    const [rows, fields] = await db.query('SELECT * FROM listings WHERE category = ?', [req.params.category]);
-    res.json(rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
-  }
-});
+
+
 
 
 
@@ -217,6 +199,10 @@ router.post('/dashboard/create-post', upload.single('image'), async (req, res) =
 app.use('/api', router);
 
 
+
+/*============================== CONSULTANTS ROUTES ======================================== */
+
+
 // Define the route to select a consultant based on consultant_uuid
 //  Tested and is working
 router.get('/consultants/:consultantUuid', async (req, res) => {
@@ -243,27 +229,74 @@ router.get('/consultants/:consultantUuid', async (req, res) => {
 router.get('/consultants', async (req, res) => {
   try {
     const [consultants] = await db.query('SELECT * FROM consultants');
-    res.json(consultants);
+    const formattedConsultants = consultants.map(consultant => ({
+      consultantUuid: consultant.consultant_uuid,
+      fullName: consultant.fname,
+      phoneNumber: consultant.phone_number,
+      email: consultant.email,
+      usernameCid: consultant.username_cid,
+      sponsorCid: consultant.sponsor_cid,
+      password: consultant.password,
+      registrationDate: consultant.registration_date,
+      gender: consultant.gender,
+      city: consultant.city,
+      teamId: consultant.team_id,
+      rank: consultant.rank
+    }));
+    res.json(formattedConsultants);
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
   }
 });
 
+
+router.get('/sponsor/:usernameCid', async (req, res) => {
+  const { usernameCid } = req.params;
+
+  try {
+    const [consultants] = await db.query('SELECT * FROM consultants WHERE username_cid = ?', [usernameCid]);
+
+    if (consultants.length === 0) {
+      return res.status(404).json({ error: 'Consultant not found' });
+    }
+
+    const consultant = consultants[0];
+
+    const selectedConsultant = {
+      fullName: consultant.fname,
+      teamId: consultant.team_id,
+      rank: consultant.rank
+    };
+
+    res.json(selectedConsultant);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
 // Define the route to handle Signup
 // Tested with postman and it worked
 router.post('/consultants/add-signup', async (req, res) => {
   try {
-    const {  phoneNumber = '' } = req.body;
+    const { phoneNumber = '', email = '' } = req.body;
 
     // Check if phone number already exists
-    const [existingConsultant] = await db.query('SELECT * FROM consultants WHERE phone_number = ?', [phoneNumber]);
-    if (existingConsultant.length > 0) {
+    const [existingPhoneNumber] = await db.query('SELECT * FROM consultants WHERE phone_number = ?', [phoneNumber]);
+    if (existingPhoneNumber.length > 0) {
       return res.status(400).json({ error: 'User with this phone number already exists' });
     }
 
+    // Check if email already exists
+    const [existingEmail] = await db.query('SELECT * FROM consultants WHERE email = ?', [email]);
+    if (existingEmail.length > 0) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+                
     const consultantUuid = uuidv4();
-    const { fname = '', email = '', sponsorCid = '', dateBirth = '', gender = '', address = '', city = '', state = '',  country = '', } = req.body;
+    const { fullName = '', sponsorCid = '', password = '',  gender = '',  city = '',  teamId = '', rank = '', } = req.body;
     const usernameCid = 'req' + phoneNumber;
     const ts = Date.now();
     const date_ob = new Date(ts);
@@ -275,30 +308,23 @@ router.post('/consultants/add-signup', async (req, res) => {
     const seconds = date_ob.getSeconds();
     const registrationDate = `${year}-${(month < 10 ? '0' + month : month)}-${(date < 10 ? '0' + date : date)} ${hour}:${minute}`;
 
-    const [sponsor] = await db.query('SELECT rank, team_id FROM consultants WHERE sponsor_cid = ?', [sponsorCid]);
-    const sponsorRank = sponsor && sponsor.length > 0 ? parseInt(sponsor[0].rank) : 0;    
-    const sponsorTeamId = sponsor && sponsor.length > 0 ? sponsor[0].team_id : 0;
-    const rank = sponsorRank + 1;
-    const teamId = sponsorTeamId;
-    const totalSales = 0;
-    const totalEarnings = 0;
+    
 
     await db.query(
-      'INSERT INTO consultants (consultant_uuid, fname, phone_number, email, username_cid, sponsor_cid, registration_date, date_birth, gender, address, city, state, country, team_id, rank, total_sales, total_earnings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO consultants (consultant_uuid, fname, phone_number, email, username_cid, sponsor_cid, password, registration_date, city, team_id, rank) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        consultantUuid, fname, phoneNumber, email, usernameCid, sponsorCid, registrationDate, dateBirth, gender, address, city, state, country, teamId, rank, totalSales, totalEarnings,
+        consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, password, registrationDate, city, teamId, rank,
       ]
     );
 
     res.json({
-      consultantUuid, fname, phoneNumber, email, usernameCid, sponsorCid, registrationDate, dateBirth, gender, address,  city, state, country, teamId,  rank, totalSales, totalEarnings,
+      consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, password, registrationDate, gender, city, teamId, rank,
     });
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
   }
 });
-
 
 // Register the router with your Express app
 
