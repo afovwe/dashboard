@@ -250,6 +250,7 @@ router.get('/consultants', async (req, res) => {
   }
 });
 
+// Route to get sponsorCid 
 
 router.get('/sponsor/:usernameCid', async (req, res) => {
   const { usernameCid } = req.params;
@@ -276,6 +277,7 @@ router.get('/sponsor/:usernameCid', async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
+
 
 
 // Define the route to handle Signup
@@ -332,8 +334,49 @@ router.post('/consultants/add-signup', async (req, res) => {
 app.use('/api', router);
 
 
+// Route to get some consultant details with consultant's uuid 
 
+router.get('/consultant-uuid/:consultantUuid', async (req, res) => {
+  const { consultantUuid } = req.params;
+  try {
+    const [consultants] = await db.query(
+      `SELECT c.fname, c.phone_number, c.email, c.username_cid, c.sponsor_cid, c.registration_date, c.gender, c.city,
+                cbd.account_number, cbd.account_name, cbd.bank_name,
+                cpi.image_url
+          FROM consultants c
+          LEFT JOIN consultant_bank_details cbd ON c.consultant_uuid = cbd.consultant_uuid
+          LEFT JOIN consultants_profile_images cpi ON c.consultant_uuid = cpi.consultant_uuid
+      WHERE c.consultant_uuid = ?`,
+      [consultantUuid]
+    );
 
+    if (consultants.length === 0) {
+      return res.status(404).json({ error: 'Consultant not found' });
+    }
+    
+    const consultant = consultants[0];
+
+    const selectedConsultant = {
+      fullName: consultant.fname,
+      phoneNumber: consultant.phone_number,
+      email: consultant.email,
+      usernameCid: consultant.username_cid,
+      sponsorCid: consultant.sponsor_cid,
+      registrationDate: consultant.registration_date,
+      gender: consultant.gender, 
+      city: consultant.city,   
+      accountNumber: consultant.account_number,
+      accountName: consultant.account_name,
+      bankName: consultant.bank_name,
+      imageUrl: consultant.image_url
+    };
+
+    res.json(selectedConsultant);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
 
 // Define the route to handle editing consultant details 
 //Tested with postman and it worked
