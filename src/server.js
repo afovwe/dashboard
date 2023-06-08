@@ -334,13 +334,13 @@ router.post('/consultants/add-signup', async (req, res) => {
 app.use('/api', router);
 
 
-// Route to get some consultant details with consultant's uuid 
+// Route to get the whole of consultant details with consultant's uuid 
 
 router.get('/consultant-uuid/:consultantUuid', async (req, res) => {
   const { consultantUuid } = req.params;
   try {
     const [consultants] = await db.query(
-      `SELECT c.fname, c.phone_number, c.email, c.username_cid, c.sponsor_cid, c.registration_date, c.gender, c.city,
+      `SELECT c.consultant_uuid, c.fname, c.phone_number, c.email, c.username_cid, c.sponsor_cid, c.registration_date, c.date_birth, c.gender, c.address, c.city,  c.state, c.country,
                 cbd.account_number, cbd.account_name, cbd.bank_name,
                 cpi.image_url
           FROM consultants c
@@ -357,14 +357,19 @@ router.get('/consultant-uuid/:consultantUuid', async (req, res) => {
     const consultant = consultants[0];
 
     const selectedConsultant = {
+      consultantUuid: consultant.consultant_uuid,
       fullName: consultant.fname,
       phoneNumber: consultant.phone_number,
       email: consultant.email,
       usernameCid: consultant.username_cid,
       sponsorCid: consultant.sponsor_cid,
       registrationDate: consultant.registration_date,
+      dateBirth: consultant.date_birth, 
       gender: consultant.gender, 
-      city: consultant.city,   
+      address: consultant.address,
+      city: consultant.city,
+      state: consultant.state,
+      country: consultant.country,
       accountNumber: consultant.account_number,
       accountName: consultant.account_name,
       bankName: consultant.bank_name,
@@ -380,40 +385,21 @@ router.get('/consultant-uuid/:consultantUuid', async (req, res) => {
 
 // Define the route to handle editing consultant details 
 //Tested with postman and it worked
-router.put('/consultants/:consultantUuid', async (req, res) => {
+router.put('/consultants/edit/:consultantUuid', async (req, res) => {
   try {
     const consultantUuid = req.params.consultantUuid;
-    const { fname = '', phoneNumber = '', email = '', sponsorCid = '', dateBirth = '', gender = '', address = '', city = '', state = '', country = '' } = req.body;
-    const usernameCid = 'req' + phoneNumber;
-
-    const [sponsor] = await db.query('SELECT rank, team_id FROM consultants WHERE consultant_uuid = ?', [sponsorCid]);
-    const sponsorRank = sponsor && sponsor.length > 0 ? sponsor[0].rank : 0;
-    const sponsorTeamId = sponsor && sponsor.length > 0 ? sponsor[0].team_id : 0;
-    const rank = sponsorRank + 1;
-    const teamId = sponsorTeamId;
+    const { fullName = '', phoneNumber = '', email = '', sponsorCid = '', dateBirth = '', gender = '', address = '', city = '', state = '', country = '' } = req.body;
+    const usernameCid = 'req' + phoneNumber;  
 
     await db.query(
       'UPDATE consultants SET fname = ?, phone_number = ?, email = ?, username_cid = ?, sponsor_cid = ?, date_birth = ?, gender = ?, address = ?, city = ?, state = ?, country = ? WHERE consultant_uuid = ?',
-      [fname, phoneNumber, email, usernameCid, sponsorCid, dateBirth, gender, address, city, state, country, consultantUuid]
+      [fullName, phoneNumber, email, usernameCid, sponsorCid, dateBirth, gender, address, city, state, country, consultantUuid]
     );
 
     res.json({
       message: 'Consultant details updated successfully',
-      consultantUuid,
-      fname,
-      phoneNumber,
-      email,
-      usernameCid,
-      sponsorCid,
-      dateBirth,
-      gender,
-      address,
-      city,
-      state,
-      country,
-      teamId,
-      rank
-    });
+      consultantUuid, fullName, phoneNumber, email,  usernameCid, sponsorCid, dateBirth, gender, address,  city,  state,  country
+       });
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
