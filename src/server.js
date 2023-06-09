@@ -335,7 +335,6 @@ app.use('/api', router);
 
 
 // Route to get the whole of consultant details with consultant's uuid 
-
 router.get('/consultant-uuid/:consultantUuid', async (req, res) => {
   const { consultantUuid } = req.params;
   try {
@@ -438,41 +437,43 @@ router.delete('/consultants/:consultantUuid', async (req, res) => {
 app.post('/api/consultants/accounts', async (req, res) => {
   try {
     // Extract the request body data
-    const { consultant_uuid, account_number, account_name, bank_name } = req.body;
+    const {consultantUuid, accountNumber, accountName, bankName} = req.body;
 
     // Insert the consultant account details into the database
     await db.query(
       'INSERT INTO consultant_bank_details (consultant_uuid, account_number, account_name, bank_name) VALUES (?, ?, ?, ?)',
-      [consultant_uuid, account_number, account_name, bank_name]
+      [consultantUuid, accountNumber, accountName, bankName]
     );
 
-    res.status(201).json({ message: 'Consultant account details inserted successfully' });
+   res.json({ consultantUuid, accountNumber, accountName, bankName });
   } catch (err) {
     console.error('Error inserting consultant account details:', err);
     res.status(500).json({ error: 'Server Error' });
   }
 });
 
-// Route  to select consultant account details:
-// working
-app.get('/api/consultants/accounts/:consultant_uuid', async (req, res) => {
+
+
+// Route to edit consultant account details
+
+app.put('/api/consultants/accounts/:consultantUuid', async (req, res) => {
+  const { consultantUuid } = req.params;
+  const { accountNumber, accountName, bankName } = req.body;
+
   try {
-    const { consultant_uuid } = req.params;
+    // Update the consultant account details in the database
+    await db.query(
+      'UPDATE consultant_bank_details SET account_number = ?, account_name = ?, bank_name = ? WHERE consultant_uuid = ?',
+      [accountNumber, accountName, bankName, consultantUuid]
+    );
 
-    // Retrieve the consultant account details from the database
-    const [results] = await db.query('SELECT * FROM consultant_bank_details WHERE consultant_uuid = ?', [consultant_uuid]);
-
-    if (results.length === 0) {
-      res.status(404).json({ error: 'Consultant account details not found' });
-      return;
-    }
-
-    res.json(results);
+    res.json({ consultantUuid, accountNumber, accountName, bankName });
   } catch (err) {
-    console.error('Error retrieving consultant account details:', err);
+    console.error('Error updating consultant account details:', err);
     res.status(500).json({ error: 'Server Error' });
   }
 });
+
 
 
 // Route to update consultant account details
