@@ -105,19 +105,12 @@ app.get('/api/listing/:propertyUuid', async (req, res) => {
   }
 });
 
-
-
-
-
-
-
-
-   
- // Route to Create a New Post with feature Image
-// Create a storage engine for Multer
+   // Route to Create a New Post with feature Image 
+// Create a storage engine for Multer 
+//C:\Users\23481\projects\angular_projects\realtor\realtor_exp_frontend\src\assets\profileImage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '..', '..', 'smartedgeus', 'src', 'assets')); // Specify the destination folder where the images will be stored
+    cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets', 'profileImage')); // Specify the destination folder where the images will be stored
   },
   filename: function (req, file, cb) {
     // Generate a unique filename for the uploaded image
@@ -144,7 +137,6 @@ const upload = multer({
     cb(new Error('Only JPG, JPEG, and PNG file types are allowed'));
   }
 });
-
 // Create an Express router
 const router = express.Router();
 
@@ -521,6 +513,99 @@ app.delete('/api/consultants/accounts/:consultant_uuid', async (req, res) => {
     res.status(500).json({ error: 'Server Error' });
   }
 });
+
+
+
+ // Route to Add Profile Image
+// Create a storage engine for Multer
+const storage2 = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets')); // Specify the destination folder where the images will be stored
+  },
+  filename: function (req, file, cb) {
+    // Generate a unique filename for the uploaded image
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const extname = path.extname(file.originalname);
+    cb(null, uniqueSuffix + extname);
+  }
+});
+
+// Create an instance of the Multer middleware
+const upload2 = multer({
+  storage: storage2,
+  limits: {
+    fileSize: 1024 * 1024 * 5 // 5MB file size limit
+  },
+  fileFilter: function (req, file, cb) {
+    // Accept only JPG, JPEG, and PNG files
+    const filetypes = /jpeg|jpg|png/;
+    const mimetype = filetypes.test(file.mimetype);
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error('Only JPG, JPEG, and PNG file types are allowed'));
+  }
+});
+
+
+
+// Define the route to handle the image upload 
+router.post('/profile-image', upload2.single('image'), async (req, res) => {
+  try {
+    
+    const { consultantUuid = '' } = req.body;
+
+    // Retrieve the file path of the uploaded image
+    //const imagePath = req.file ? req.file.path : '';
+    const imageUrl = req.file ? path.basename(req.file.path) : '';
+
+    await db.query(
+      'INSERT INTO consultants_profile_images (consultant_uuid, image_url) VALUES (?, ?)',
+      [consultantUuid, imageUrl]
+    );
+
+    res.json({ consultantUuid, imageUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Register the router with your Express app
+app.use('/api', router);
+
+// Define the route to handle editing the profile image
+// Define the route to handle editing the profile image
+router.put('/profile-image/:consultantUuid', upload2.single('image'), async (req, res) => {
+  try {
+    const consultantUuid = req.params.consultantUuid;
+    
+    let imageUrl = '';
+    if (req.file) {
+      // Retrieve the file path of the uploaded image
+      imageUrl = path.basename(req.file.path);
+    } else {
+      // No new image selected, fetch the existing image URL from the database
+      const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
+      imageUrl = row ? row.image_url : '';
+    }
+
+    await db.query(
+      'UPDATE consultants_profile_images SET image_url = ? WHERE consultant_uuid = ?',
+      [imageUrl, consultantUuid]
+    );
+
+    res.json({ consultantUuid, imageUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+
+
 
 /*===================================CONSULTANT ROUTES====================================== */
 
