@@ -6,6 +6,7 @@ import { db } from './database';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcrypt';
 
 // Initialize Firebase Admin using your service account credentials
 const serviceAccount = {
@@ -33,14 +34,12 @@ const app = express();
 
 // Initialize Firebase Admin using your service account credentials
 
-
-
-
 // Serve static files from the public/images directory
 app.use(express.static(path.join(__dirname, 'public/images')));
 
 app.use(cors());
 app.use(bodyParser.json());
+
 
 
  
@@ -69,6 +68,8 @@ app.get('/api/listings', async (req, res) => {
       };
     });
 
+    
+
     res.json(listings); // Send the listings as JSON in the response body
   } catch (error) {
     console.error('Error fetching listings data from the database:', error);
@@ -79,23 +80,25 @@ app.get('/api/listings', async (req, res) => {
 
 
 // Route to get listing detail by propertyUuid
+//Woking fine 
 app.get('/api/listing/:propertyUuid', async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid || null; // Provide a default value of null if id is not available
-    const query = 'SELECT title, description, date_created, image_path, category FROM listings WHERE property_uuid = ? LIMIT 1';
+    
+    const query = 'SELECT title, description, date_created as dateCreated, image_path as imagePath, category FROM listings WHERE property_uuid = ? LIMIT 1';
 
     const [rows, fields] = await db.query(query, [propertyUuid]);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Listing not found' });
     }
 
-    const { title, description, date_created, category, image_path } = rows[0];
+    const { title, description, dateCreated, category, imagePath } = rows[0];
     const listingData = {
       title,
       description,
-      date_created,      
+      dateCreated,      
       category,
-      image_path
+      imagePath
     };
     
     res.json(listingData); // Send listingData in the response JSON
@@ -108,9 +111,10 @@ app.get('/api/listing/:propertyUuid', async (req, res) => {
    // Route to Create a New Post with feature Image 
 // Create a storage engine for Multer 
 //C:\Users\23481\projects\angular_projects\realtor\realtor_exp_frontend\src\assets\profileImage
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets', 'profileImage')); // Specify the destination folder where the images will be stored
+    cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets')); // Specify the destination folder where the images will be stored
   },
   filename: function (req, file, cb) {
     // Generate a unique filename for the uploaded image
@@ -141,11 +145,10 @@ const upload = multer({
 const router = express.Router();
 
 // Define the route to handle the image upload and create a new article
-router.post('/dashboard/create-post', upload.single('image'), async (req, res) => {
+router.post('/dashboard/add-listing', upload.single('image'), async (req, res) => {
   try {
-    const articleUuid = uuidv4();
-    const { title = '', brief_description = '', description = '', category = '' } = req.body;
-    const auuId = '12345';
+    const propertyUuid = uuidv4();
+    const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;    
     const ts = Date.now();
     const date_ob = new Date(ts);
     const date = date_ob.getDate();
@@ -163,20 +166,21 @@ router.post('/dashboard/create-post', upload.single('image'), async (req, res) =
     const imagePath = req.file ? path.basename(req.file.path) : '';
 
     await db.query(
-      'INSERT INTO listings (propertyUuid, auuid, title, description, image_path, category, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [articleUuid, auuId, title, description, imagePath, category, dateCreated, dateLastModified, views]
+      'INSERT INTO listings (property_uuid, title, description, image_path, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )',
+      [propertyUuid, title, description, imagePath, category, price, city, state, dateCreated, dateLastModified, views]
     );
 
     res.json({
-      articleUuid,
-      auuId,
-      title,
-      brief_description,
+      propertyUuid,    
+      title,      
       description,
       //imagePath,
       imagePath,   //: 'assets/' + imagePath,
       //imagePath: req.protocol + '://' + req.get('host') + '/assets/' + imagePath,
       category,
+      price, 
+      city, 
+      state,
       dateCreated,
       dateLastModified,
       views,
@@ -276,7 +280,7 @@ router.get('/sponsor/:usernameCid', async (req, res) => {
 // Tested with postman and it worked
 router.post('/consultants/add-signup', async (req, res) => {
   try {
-    const { phoneNumber = '', email = '' } = req.body;
+    const { phoneNumber = '', email = '', password = '' } = req.body;
 
     // Check if phone number already exists
     const [existingPhoneNumber] = await db.query('SELECT * FROM consultants WHERE phone_number = ?', [phoneNumber]);
@@ -289,9 +293,13 @@ router.post('/consultants/add-signup', async (req, res) => {
     if (existingEmail.length > 0) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
-                
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Continue with the rest of the code
     const consultantUuid = uuidv4();
-    const { fullName = '', sponsorCid = '', password = '',  gender = '',  city = '',  teamId = '', rank = '', } = req.body;
+    const { fullName = '', sponsorCid = '', gender = '', city = '', teamId = '', rank = '' } = req.body;
     const usernameCid = 'req' + phoneNumber;
     const ts = Date.now();
     const date_ob = new Date(ts);
@@ -303,17 +311,15 @@ router.post('/consultants/add-signup', async (req, res) => {
     const seconds = date_ob.getSeconds();
     const registrationDate = `${year}-${(month < 10 ? '0' + month : month)}-${(date < 10 ? '0' + date : date)} ${hour}:${minute}`;
 
-    
-
     await db.query(
       'INSERT INTO consultants (consultant_uuid, fname, phone_number, email, username_cid, sponsor_cid, password, registration_date, city, team_id, rank) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, password, registrationDate, city, teamId, rank,
+        consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, hashedPassword, registrationDate, city, teamId, rank,
       ]
     );
 
     res.json({
-      consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, password, registrationDate, gender, city, teamId, rank,
+      consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, registrationDate, gender, city, teamId, rank,
     });
   } catch (error) {
     console.error(error);
@@ -321,9 +327,95 @@ router.post('/consultants/add-signup', async (req, res) => {
   }
 });
 
-// Register the router with your Express app
 
-app.use('/api', router);
+
+// Route to handle login
+
+router.post('/consultants/login', async (req, res) => {
+  try {
+    const { email = '', usernameCid = '', password = '' } = req.body;
+
+    // Find the user by email or usernameCid
+    const [user] = await db.query('SELECT * FROM consultants WHERE email = ? OR username_cid = ?', [email, usernameCid]);
+    if (user.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if the provided password matches the hashed password
+    const isPasswordValid = await bcrypt.compare(password, user[0].password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    // If the password is valid, proceed with the login logic
+    // You can generate a JWT token or set a session here
+    // For simplicity, let's just return a success message
+    res.json({ message: 'Login successful' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+
+// Get consultant by email or username_cid
+router.get('/consultant/:emailUsernameCid', async (req, res) => {
+  try {
+    const emailUsernameCid = req.params.emailUsernameCid;
+    const query = `
+      SELECT c.consultant_uuid AS consultantUuid, c.fname AS fullName, c.phone_number AS phoneNumber,
+        c.email, c.username_cid AS usernameCid, c.sponsor_cid AS sponsorCid, c.password,
+        c.registration_date AS registrationDate, c.gender, c.city, c.team_id AS teamId, c.rank,
+        cp.image_url AS imageUrl
+      FROM consultants c
+      LEFT JOIN consultants_profile_images cp ON c.consultant_uuid = cp.consultant_uuid
+      WHERE c.email = ? OR c.username_cid = ?
+      LIMIT 1`;
+    const [consultant] = await db.query(query, [emailUsernameCid, emailUsernameCid]);
+
+    if (consultant) {
+      res.json(consultant);
+    } else {
+      res.status(404).json({ message: 'Consultant not found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+
+// Get Sponsor Detail  by Consultant 
+router.get('/sponsor-detail/:sponsorCid', async (req, res) => {
+  try {
+    const sponsorCid = req.params.sponsorCid;
+    const query = `
+      SELECT c.consultant_uuid AS consultantUuid, c.fname AS fullName, c.phone_number AS phoneNumber,
+        c.email, c.username_cid AS usernameCid, c.sponsor_cid AS sponsorCid, c.password,
+        c.registration_date AS registrationDate, c.gender, c.city, c.team_id AS teamId, c.rank,
+        cp.image_url AS imageUrl
+      FROM consultants c
+      LEFT JOIN consultants_profile_images cp ON c.consultant_uuid = cp.consultant_uuid
+      WHERE c.username_cid = ? 
+      LIMIT 1`;
+    const [consultant] = await db.query(query, [ sponsorCid ]);
+
+    if (consultant) {
+      res.json(consultant);
+    } else {
+      res.status(404).json({ message: 'Consultant not found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Network Query
+
+
 
 
 // Route to get the whole of consultant details with consultant's uuid 
@@ -549,7 +641,6 @@ const upload2 = multer({
 });
 
 
-
 // Define the route to handle the image upload 
 router.post('/profile-image', upload2.single('image'), async (req, res) => {
   try {
@@ -574,6 +665,55 @@ router.post('/profile-image', upload2.single('image'), async (req, res) => {
 
 // Register the router with your Express app
 app.use('/api', router);
+
+  // Define the route to handle the image upload and create a new article
+  router.post('/create-post', upload2.single('image'), async (req, res) => {
+    try {
+      const propertyUuid = uuidv4();
+      const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;
+      const ts = Date.now();
+      const date_ob = new Date(ts);
+      const date = date_ob.getDate();
+      const month = date_ob.getMonth() + 1;
+      const year = date_ob.getFullYear();
+      const hour = date_ob.getHours();
+      const minute = date_ob.getMinutes();
+      const seconds = date_ob.getSeconds();
+      const dateCreated = year + '-' + (month < 10 ? '0' + month : month) + '-' + (date < 10 ? '0' + date : date) + ' ' + hour + ':' + minute;
+      const dateLastModified = null;
+      const views = 0;
+  
+      // Retrieve the file path of the uploaded image
+      //const imagePath = req.file ? req.file.path : '';
+      const imagePath = req.file ? path.basename(req.file.path) : 'property01.jpeg';
+  
+      await db.query(
+        'INSERT INTO listings (property_uuid, title, description, image_path, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [propertyUuid, title, description, imagePath, category, price, city, state, dateCreated, dateLastModified, views]
+      );
+  
+      res.json({
+      propertyUuid,      
+      title,
+      description, 
+      imagePath, 
+      category, 
+      price, 
+      city, 
+      state, 
+      dateCreated, 
+      dateLastModified, 
+      views      
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send('Server Error');
+    }
+  });
+
+// Register the router with your Express app
+app.use('/api', router);
+
 
 // Define the route to handle editing the profile image
 // Define the route to handle editing the profile image
