@@ -46,7 +46,13 @@ app.use(bodyParser.json());
 // route to select all listings
 app.get('/api/listings', async (req, res) => {
   try {
-    const query = 'SELECT * FROM listings';
+    const query = `
+      SELECT l.property_uuid AS propertyUuid, l.title, l.description, l.price,
+             l.category, l.date_created AS dateCreated,
+             l.date_last_modified AS dateLastModified, lp.image_url AS imageUrl
+      FROM listings l
+      LEFT JOIN property_profile_images lp ON l.property_uuid = lp.property_uuid
+    `;
     const [rows, fields] = await db.query(query);
 
     if (rows.length === 0) {
@@ -55,27 +61,26 @@ app.get('/api/listings', async (req, res) => {
 
     const listings = rows.map((row) => {
       return {
-        id: row.id,
-        propertyUuid: row.property_uuid,
+        propertyUuid: row.propertyUuid,
         title: row.title,
         description: row.description,
-        imagePath: row.image_path,
-        category: row.category,
         price: row.price,
-        dateCreated: row.date_created,
-        dateLastModified: row.date_last_modified,
-        views: row.views
+        imagePath: row.imagePath,
+        category: row.category,
+        dateCreated: row.dateCreated,
+        dateLastModified: row.dateLastModified,
+        views: row.views,
+        imageUrl: row.imageUrl
       };
     });
 
-    
-
-    res.json(listings); // Send the listings as JSON in the response body
+    res.json(listings);
   } catch (error) {
-    console.error('Error fetching listings data from the database:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 
 
@@ -85,20 +90,31 @@ app.get('/api/listing/:propertyUuid', async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid || null; // Provide a default value of null if id is not available
     
-    const query = 'SELECT title, description, date_created as dateCreated, image_path as imagePath, category FROM listings WHERE property_uuid = ? LIMIT 1';
+    const query = `
+    SELECT l.property_uuid AS propertyUuid, l.title AS title, l.description AS description,
+      l.category AS category, l.price, l.city AS city, l.state AS state, l.date_created AS dateCreated,
+      lp.image_url AS imageUrl
+      FROM listings l
+    LEFT JOIN property_profile_images lp ON l.property_uuid = lp.property_uuid
+    WHERE l.property_uuid = ?
+    LIMIT 1`;
 
     const [rows, fields] = await db.query(query, [propertyUuid]);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Listing not found' });
     }
 
-    const { title, description, dateCreated, category, imagePath } = rows[0];
+    const { title, description, category, price, city, state, dateCreated, imageUrl } = rows[0];
     const listingData = {
+      propertyUuid,
       title,
-      description,
-      dateCreated,      
+      description,            
       category,
-      imagePath
+      price,
+      city, 
+      state,
+      dateCreated,
+      imageUrl
     };
     
     res.json(listingData); // Send listingData in the response JSON
@@ -145,7 +161,7 @@ const upload = multer({
 const router = express.Router();
 
 // Define the route to handle the image upload and create a new article
-router.post('/dashboard/add-listing', upload.single('image'), async (req, res) => {
+router.post('/dashboard/add-listing',  async (req, res) => {
   try {
     const propertyUuid = uuidv4();
     const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;    
@@ -163,20 +179,17 @@ router.post('/dashboard/add-listing', upload.single('image'), async (req, res) =
 
     // Retrieve the file path of the uploaded image
     //const imagePath = req.file ? req.file.path : '';
-    const imagePath = req.file ? path.basename(req.file.path) : '';
+   // const imagePath = req.file ? path.basename(req.file.path) : '';
 
     await db.query(
-      'INSERT INTO listings (property_uuid, title, description, image_path, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )',
-      [propertyUuid, title, description, imagePath, category, price, city, state, dateCreated, dateLastModified, views]
+      'INSERT INTO listings (property_uuid, title, description, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )',
+      [propertyUuid, title, description, category, price, city, state, dateCreated, dateLastModified, views]
     );
 
     res.json({
       propertyUuid,    
       title,      
-      description,
-      //imagePath,
-      imagePath,   //: 'assets/' + imagePath,
-      //imagePath: req.protocol + '://' + req.get('host') + '/assets/' + imagePath,
+      description,      
       category,
       price, 
       city, 
@@ -663,57 +676,6 @@ router.post('/profile-image', upload2.single('image'), async (req, res) => {
   }
 });
 
-// Register the router with your Express app
-app.use('/api', router);
-
-  // Define the route to handle the image upload and create a new article
-  router.post('/create-post', upload2.single('image'), async (req, res) => {
-    try {
-      const propertyUuid = uuidv4();
-      const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;
-      const ts = Date.now();
-      const date_ob = new Date(ts);
-      const date = date_ob.getDate();
-      const month = date_ob.getMonth() + 1;
-      const year = date_ob.getFullYear();
-      const hour = date_ob.getHours();
-      const minute = date_ob.getMinutes();
-      const seconds = date_ob.getSeconds();
-      const dateCreated = year + '-' + (month < 10 ? '0' + month : month) + '-' + (date < 10 ? '0' + date : date) + ' ' + hour + ':' + minute;
-      const dateLastModified = null;
-      const views = 0;
-  
-      // Retrieve the file path of the uploaded image
-      //const imagePath = req.file ? req.file.path : '';
-      const imagePath = req.file ? path.basename(req.file.path) : 'property01.jpeg';
-  
-      await db.query(
-        'INSERT INTO listings (property_uuid, title, description, image_path, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [propertyUuid, title, description, imagePath, category, price, city, state, dateCreated, dateLastModified, views]
-      );
-  
-      res.json({
-      propertyUuid,      
-      title,
-      description, 
-      imagePath, 
-      category, 
-      price, 
-      city, 
-      state, 
-      dateCreated, 
-      dateLastModified, 
-      views      
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Server Error');
-    }
-  });
-
-// Register the router with your Express app
-app.use('/api', router);
-
 
 // Define the route to handle editing the profile image
 // Define the route to handle editing the profile image
@@ -742,6 +704,84 @@ router.put('/profile-image/:consultantUuid', upload2.single('image'), async (req
     res.status(500).send('Server Error');
   }
 });
+
+
+// Define the route to handle the image upload and create a new article
+router.post('/create-post',  async (req, res) => {
+ 
+  try {
+    const propertyUuid = uuidv4();
+    const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;
+    const ts = Date.now();
+    const date_ob = new Date(ts);
+    const date = date_ob.getDate();
+    const month = date_ob.getMonth() + 1;
+    const year = date_ob.getFullYear();
+    const hour = date_ob.getHours();
+    const minute = date_ob.getMinutes();
+    const seconds = date_ob.getSeconds();
+    const dateCreated = year + '-' + (month < 10 ? '0' + month : month) + '-' + (date < 10 ? '0' + date : date) + ' ' + hour + ':' + minute;
+    const dateLastModified = null;
+    const views = 0;
+
+    // Retrieve the file path of the uploaded image
+    // const imagePath = req.file ? req.file.path : '';
+   
+
+    const result = await db.query(
+      'INSERT INTO listings (property_uuid, title, description, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [propertyUuid, title, description, category, price, city, state, dateCreated, dateLastModified, views]
+    );
+
+   
+
+    res.json({     
+      propertyUuid,
+      title,
+      description,    
+      category,
+      price,
+      city,
+      state,
+      dateCreated,
+      dateLastModified,
+      views
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// Define the route to handle the propert image upload 
+router.post('/property-image', upload2.single('image'), async (req, res) => {
+  try {
+    
+    const { propertyUuid = '' } = req.body;
+
+    // Retrieve the file path of the uploaded image
+    //const imagePath = req.file ? req.file.path : '';
+    const imageUrl = req.file ? path.basename(req.file.path) : '';
+
+    await db.query(
+      'INSERT INTO property_profile_images (property_uuid, image_url) VALUES (?, ?)',
+      [propertyUuid, imageUrl]
+    );
+
+    res.json({ propertyUuid, imageUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+
+// Register the router with your Express app
+app.use('/api', router);
+
+
 
 
 
