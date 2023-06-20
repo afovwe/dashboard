@@ -124,6 +124,36 @@ app.get('/api/listing/:propertyUuid', async (req, res) => {
   }
 });
 
+// Route to delete a listing by propertyUuid
+// Route to delete a listing by propertyUuid
+app.delete('/api/listing/:propertyUuid', async (req, res) => {
+  try {
+    const propertyUuid = req.params.propertyUuid || null; // Provide a default value of null if propertyUuid is not available
+
+    // Check if the listing exists before deleting
+    const checkQuery = 'SELECT property_uuid FROM listings WHERE property_uuid = ?';
+    const [checkRows, checkFields] = await db.query(checkQuery, [propertyUuid]);
+    if (checkRows.length === 0) {
+      return res.status(404).json({ error: 'Listing not found' });
+    }
+
+    // Delete the listing from listings table
+    const deleteListingQuery = 'DELETE FROM listings WHERE property_uuid = ?';
+    await db.query(deleteListingQuery, [propertyUuid]);
+
+    // Delete the corresponding image from property_profile_images table
+    const deleteImageQuery = 'DELETE FROM property_profile_images WHERE property_uuid = ?';
+    await db.query(deleteImageQuery, [propertyUuid]);
+
+    res.json({ message: 'Listing deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting listing from the database:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+
    // Route to Create a New Post with feature Image 
 // Create a storage engine for Multer 
 //C:\Users\23481\projects\angular_projects\realtor\realtor_exp_frontend\src\assets\profileImage
@@ -399,26 +429,86 @@ router.get('/consultant/:emailUsernameCid', async (req, res) => {
 });
 
 
-
-// Get Sponsor Detail  by Consultant 
-router.get('/sponsor-detail/:sponsorCid', async (req, res) => {
+/*================================= Network Query=================================*/
+//Worked
+/* // Get Consultants by Sponsor ID
+router.get('/downline/:sponsorId', async (req, res) => {
   try {
-    const sponsorCid = req.params.sponsorCid;
+    const sponsorId = req.params.sponsorId;
     const query = `
-      SELECT c.consultant_uuid AS consultantUuid, c.fname AS fullName, c.phone_number AS phoneNumber,
-        c.email, c.username_cid AS usernameCid, c.sponsor_cid AS sponsorCid, c.password,
-        c.registration_date AS registrationDate, c.gender, c.city, c.team_id AS teamId, c.rank,
-        cp.image_url AS imageUrl
-      FROM consultants c
-      LEFT JOIN consultants_profile_images cp ON c.consultant_uuid = cp.consultant_uuid
-      WHERE c.username_cid = ? 
-      LIMIT 1`;
-    const [consultant] = await db.query(query, [ sponsorCid ]);
+      SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
+      FROM consultants
+      WHERE sponsor_cid = ?
+    `;
+    const [rows] = await db.query(query, [sponsorId]);
 
-    if (consultant) {
-      res.json(consultant);
+    if (rows.length > 0) {
+      res.json(rows);
     } else {
-      res.status(404).json({ message: 'Consultant not found' });
+      res.status(404).json({ message: 'No consultants found for the given sponsor ID' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+}); */
+
+// Worked too
+/* 
+router.get('/downline/:sponsorId', async (req, res) => {
+  try {
+    const sponsorId = req.params.sponsorId;
+    const query = `
+      SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
+      FROM consultants
+      WHERE sponsor_cid = ?
+    `;
+    const [rows] = await db.query(query, [sponsorId]);
+
+    if (rows.length > 0) {
+      const downlines = [];
+      for (const consultant of rows) {
+        const downlineQuery = `
+          SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
+          FROM consultants
+          WHERE sponsor_cid = ?
+        `;
+        const [downlineRows] = await db.query(downlineQuery, [consultant.usernameCid]);
+        consultant.downlines = downlineRows;
+        downlines.push(consultant);
+      }
+      res.json(downlines);
+    } else {
+      res.status(404).json({ message: 'No consultants found for the given sponsor ID' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+}); */
+
+router.get('/downline/:sponsorId', async (req, res) => {
+  try {
+    const sponsorId = req.params.sponsorId;
+    const query = `
+      SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
+      FROM consultants
+      WHERE sponsor_cid = ?
+    `;
+    const [rows] = await db.query(query, [sponsorId]);
+
+    if (rows.length > 0) {
+      const consultants = [];
+
+      for (const consultant of rows) {
+        const downlines = await getDownlines(consultant.usernameCid);
+        consultant.downlines = downlines;
+        consultants.push(consultant);
+      }
+
+      res.json(consultants);
+    } else {
+      res.status(404).json({ message: 'No consultants found for the given sponsor ID' });
     }
   } catch (error) {
     console.error(error);
@@ -426,8 +516,25 @@ router.get('/sponsor-detail/:sponsorCid', async (req, res) => {
   }
 });
 
-// Network Query
+async function getDownlines(parentId) {
+  const downlineQuery = `
+    SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
+    FROM consultants
+    WHERE sponsor_cid = ?
+  `;
 
+  const [downlineRows] = await db.query(downlineQuery, [parentId]);
+
+  const downlines = [];
+
+  for (const downline of downlineRows) {
+    const subDownlines = await getDownlines(downline.usernameCid);
+    downline.downlines = subDownlines;
+    downlines.push(downline);
+  }
+
+  return downlines;
+}
 
 
 
@@ -706,7 +813,7 @@ router.put('/profile-image/:consultantUuid', upload2.single('image'), async (req
 });
 
 
-// Define the route to handle the image upload and create a new article
+// Define the route to handle new listing creation
 router.post('/create-post',  async (req, res) => {
  
   try {
@@ -725,16 +832,13 @@ router.post('/create-post',  async (req, res) => {
     const views = 0;
 
     // Retrieve the file path of the uploaded image
-    // const imagePath = req.file ? req.file.path : '';
-   
+    // const imagePath = req.file ? req.file.path : '';   
 
     const result = await db.query(
       'INSERT INTO listings (property_uuid, title, description, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [propertyUuid, title, description, category, price, city, state, dateCreated, dateLastModified, views]
     );
-
    
-
     res.json({     
       propertyUuid,
       title,
@@ -753,8 +857,40 @@ router.post('/create-post',  async (req, res) => {
   }
 });
 
+// Define the route to handle editing consultant details 
+//Tested with postman and it worked   , city, state, date_created, date_last_modified,
+router.put('/edit-property/:propertyUuid', async (req, res) => {
+  try {
+    const propertyUuid = req.params.propertyUuid;
+    const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;
+    const ts = Date.now();
+    const date_ob = new Date(ts);
+    const date = date_ob.getDate();
+    const month = date_ob.getMonth() + 1;
+    const year = date_ob.getFullYear();
+    const hour = date_ob.getHours();
+    const minute = date_ob.getMinutes();
+    const seconds = date_ob.getSeconds();
+    const dateLastModified = year + '-' + (month < 10 ? '0' + month : month) + '-' + (date < 10 ? '0' + date : date) + ' ' + hour + ':' + minute + '-' + seconds;
+    
 
-// Define the route to handle the propert image upload 
+    await db.query(
+      'UPDATE listings SET title = ?, description = ?, category = ?, price = ?, city = ?, state = ?,  date_last_modified = ? WHERE property_uuid = ?',
+      [title, description, category, price, city, state, dateLastModified, propertyUuid]
+    );
+
+    res.json({
+      message: 'Property details updated successfully',
+      propertyUuid, title, description, category,  price,  city,  state, dateLastModified  
+       });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// Define the route to handle the property image upload 
 router.post('/property-image', upload2.single('image'), async (req, res) => {
   try {
     
@@ -776,6 +912,33 @@ router.post('/property-image', upload2.single('image'), async (req, res) => {
   }
 });
 
+// Define the route to handle editing the property image
+// Define the route to handle editing the property image
+router.put('/edit-property-image/:propertyUuid', upload2.single('image'), async (req, res) => {
+  try {
+    const propertyUuid = req.params.propertyUuid;
+    
+    let imageUrl = '';
+    if (req.file) {
+      // Retrieve the file path of the uploaded image
+      imageUrl = path.basename(req.file.path);
+    } else {
+      // No new image selected, fetch the existing image URL from the database
+      const [row] = await db.query('SELECT image_url FROM property_profile_images WHERE property_uuid = ?', [propertyUuid]);
+      imageUrl = row ? row.image_url : '';
+    }
+
+    await db.query(
+      'UPDATE property_profile_images SET image_url = ? WHERE property_uuid = ?',
+      [imageUrl, propertyUuid]
+    );
+
+    res.json({ propertyUuid, imageUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
 
 
 // Register the router with your Express app
@@ -783,11 +946,33 @@ app.use('/api', router);
 
 
 
-
-
-
-
 /*===================================CONSULTANT ROUTES====================================== */
+
+
+
+//Get Downlines
+// Endpoint to retrieve downline
+// Update your code to use the executeQuery function
+
+app.get('/api/downline/:sponsorId', async (req, res) => {
+  try {
+    const { sponsorId } = req.params;
+
+    // Make a database query to retrieve the consultant details
+    const query = 'SELECT `fname` AS fullNme, `phone_number` AS phoneNumber, `email` AS email, `username_cid` AS usernameCid, sponsor_cid AS parentId FROM `consultants` WHERE `sponsor_cid` = ?';
+    
+    // Replace the code below with your actual database query execution code
+    // Execute the query using your preferred method (e.g., using a database client like MySQL, PostgreSQL, etc.)
+    // and pass the sponsorId as a parameter to prevent SQL injection
+    const results = await yourDatabaseClient.executeQuery(query, [sponsorId]);
+
+    // Return the results
+    res.json(results);
+  } catch (error) {
+    console.error('Error retrieving consultant details: ', error);
+    res.status(500).json({ error: 'Error retrieving consultant details' });
+  }
+});
 
 
 
