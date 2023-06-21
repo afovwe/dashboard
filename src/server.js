@@ -491,7 +491,7 @@ router.get('/downline/:sponsorId', async (req, res) => {
   try {
     const sponsorId = req.params.sponsorId;
     const query = `
-      SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
+      SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId, team_id AS team, rank As level
       FROM consultants
       WHERE sponsor_cid = ?
     `;
@@ -518,7 +518,7 @@ router.get('/downline/:sponsorId', async (req, res) => {
 
 async function getDownlines(parentId) {
   const downlineQuery = `
-    SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
+    SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId, team_id AS team, rank As level
     FROM consultants
     WHERE sponsor_cid = ?
   `;
