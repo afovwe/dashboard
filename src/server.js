@@ -1,31 +1,19 @@
-import * as admin from 'firebase-admin';
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { db } from './database';
+import { db } from './database.js';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
 
-// Initialize Firebase Admin using your service account credentials
-const serviceAccount = {
-  "type": "service_account",
-  "project_id": "realtor-express-squad",
-  "private_key_id": "25fe84d364680e4a587ce3018d48e4b9b174b660",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDOtaiclbV/h+Zh\n7Y91w/Z+I4ROLBGZRU+DO0WZwBlPXdzImaI8asY9acI/a29exQurAoVvIQ3Rq8LY\noNsN/n3sbmyrJY19CHJ5D9tsl/aW8N23mb2nR9Gt0gcxTkeVbUn3TDB4Aul4x8zx\n7tx0szXDFF422vODAVobqSz+rL0vkFn9Pibibk8mmcf2uI6Rp8OFKMMhwhXhapl5\n7+NiA5x+IMe25mRGZeMIMSIqixkvgWPoOR+W24Y7FYyd39xusb0bMHaa/6doJREQ\ncUl8bNu4hNHph9/PBbxAs7NKSsQJTZEJBlVPYDG50uIWvHwvC99u8cDRIGOq9qE5\nINFvIySVAgMBAAECggEAKAV+d5C50w8MITY2UjIGib4VKfB42NDVV/50F5RcoiP1\ncQZj5agzqSTOlepWZgYnH+1NSeqfqxKDF1+vgdpd5ZaspgdPiV+HEF7sWC5k8S0B\n9IAI+vgaBfo158s06169VSrUcIv5yad/i/D4EIU5GcPaCOtj/d+XY2ciHc3ylCBY\njlCKe1FvV7st1pY0bytluOdBHw2zNBqLzxTZNvHlCVtoq6Imelc3MuIkENEM9JFK\natiT76huoYxQuEnVWuUUQR0w94VymZzdptlr008FpUnsvIP6CostGa3VppD1eeCV\nu7113Pznrs3KOL//LU1S7joZk7r+pvJWAi52onIRmQKBgQD64HAvSzkCSZfYj0kk\nAnrPrkyjLScQluqH3Hv2aIBMk4Ywp2krn7Pn7Ql3QzZCfkB3YGTpAn3JaA5Voghu\nx9xFVtO32SkFW1Op8/dXni5KFDQYlDG42YZETUJjoZ5q6mYc69NPI/XudF7JLdkJ\n9S6xwZ6wRtoYekwdVyH6L+C6/QKBgQDS7lGPWPLhNuDTdfsUZylDOSZMjAFHgBnk\neu9G4AoS5WJ05xyelQ7eDn48a1I9mXT03Dj5KoOHwOL2394IaYb/corQXbCPRpNe\nSk7oQUc4UwhPHxSpbrzA2jrTdh8maxcOGdYRsiAj38467K/mTxk4etw5xFAFRgrH\nGLyfvIi/eQKBgCm1xvEWAJRwx94pdG+YOfLtd7BpgWUwsi2Eate86BfTLyxHqSSn\nmLGmpzw84HiNpQoz7JMQ5vjlY/y4w84nTGf615hpcniBhpdrCGR42BlY4pBzkxC4\nmaohbjhCVqRP9Eo6qxctU2Yh0uB/zuXo7aqAFnIYVYpcSutV4UBHVYXBAoGAYyBq\npfJIWjzfFaF5eJIumw/thsW5CDAUewKnFmjNcynnxkaidYhZb1PiUWSiRp6qjzQ7\ndiVboN2uDBUTFGL7dWsP/3I4Om0Rbpt/T7j1zmt/GSfjHukSvZMRWDVH2Fc1g4Py\nzWgnoJRaJ+j5lUOQ97ENc/xlGsVa5UwjwPHqVgkCgYANkAhuBKHRzQJCKgBV9eNT\nexAs8Fa3mtZJUgIxqNV8eozxAD37AMWlkyIOc8j7wMWkmteGGoISMZKwavMTQicg\nA7CcYthcOnMFMadDgz1kzz2RGI0uHeGsM6bLENBlEvNLQIRlEDyAYgE9d5Hrzito\nrV4wXvfYhZvMONw7VnQB/Q==\n-----END PRIVATE KEY-----\n",
-  "client_email": "firebase-adminsdk-yipa9@realtor-express-squad.iam.gserviceaccount.com",
-  "client_id": "102066519701717826601",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-yipa9%40realtor-express-squad.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-};
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  // databaseURL: 'https://your-project-id.firebaseio.com' // Replace with your Firebase project's database URL
-});
+
+
+
+dotenv.config();
+
 
 // Use Firebase Admin in your Express routes and middleware
 const app = express();
@@ -40,11 +28,34 @@ app.use(express.static(path.join(__dirname, 'public/images')));
 app.use(cors());
 app.use(bodyParser.json());
 
+// JWT secret key
+
+const secretKey = process.env.JWT_SECRET;
+
+const authenticate = (req, res, next) => {
+  const token = req.headers.authorization;
+
+  if (!token) {
+    return res.status(401).json({ error: 'You are not authorized to access this page' });
+  }
+
+  try {
+    const decoded = jwt.verify(token.replace('Bearer ', ''), secretKey);
+
+    // Add the decoded user information to the request object
+    req.user = decoded;
+
+    // Proceed to the next middleware or route handler
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
 
 
- 
-// route to select all listings
-app.get('/api/listings', async (req, res) => {
+
+// Example route that requires authentication
+app.get('/api/listings', authenticate, async (req, res) => {
   try {
     const query = `
       SELECT l.property_uuid AS propertyUuid, l.title, l.description, l.price,
@@ -86,7 +97,7 @@ app.get('/api/listings', async (req, res) => {
 
 // Route to get listing detail by propertyUuid
 //Woking fine 
-app.get('/api/listing/:propertyUuid', async (req, res) => {
+app.get('/api/listing/:propertyUuid', authenticate,  async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid || null; // Provide a default value of null if id is not available
     
@@ -126,7 +137,7 @@ app.get('/api/listing/:propertyUuid', async (req, res) => {
 
 // Route to delete a listing by propertyUuid
 // Route to delete a listing by propertyUuid
-app.delete('/api/listing/:propertyUuid', async (req, res) => {
+app.delete('/api/listing/:propertyUuid',  authenticate, async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid || null; // Provide a default value of null if propertyUuid is not available
 
@@ -191,7 +202,7 @@ const upload = multer({
 const router = express.Router();
 
 // Define the route to handle the image upload and create a new article
-router.post('/dashboard/add-listing',  async (req, res) => {
+router.post('/dashboard/add-listing', authenticate, async (req, res) => {
   try {
     const propertyUuid = uuidv4();
     const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;    
@@ -370,10 +381,7 @@ router.post('/consultants/add-signup', async (req, res) => {
   }
 });
 
-
-
 // Route to handle login
-
 router.post('/consultants/login', async (req, res) => {
   try {
     const { email = '', usernameCid = '', password = '' } = req.body;
@@ -391,9 +399,20 @@ router.post('/consultants/login', async (req, res) => {
     }
 
     // If the password is valid, proceed with the login logic
-    // You can generate a JWT token or set a session here
-    // For simplicity, let's just return a success message
-    res.json({ message: 'Login successful' });
+    const secretKey = process.env.JWT_SECRET;
+    // Generate a JWT token with the user's ID and role
+    const token = jwt.sign(
+      { userId: user[0].id, isAdmin: user[0].isAdmin }, // Include the isAdmin property in the payload
+      secretKey,
+      { expiresIn: '1h' }
+    );
+
+    // Return the token and additional information
+    res.json({
+      message: 'Login successful',
+      token: token,
+      isAdmin: user[0].isAdmin // Include the isAdmin property in the response
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
@@ -402,8 +421,13 @@ router.post('/consultants/login', async (req, res) => {
 
 
 
+
+// Register the router with your Express app
+app.use('/api', router);
+
+
 // Get consultant by email or username_cid
-router.get('/consultant/:emailUsernameCid', async (req, res) => {
+router.get('/consultant/:emailUsernameCid', authenticate, async (req, res) => {
   try {
     const emailUsernameCid = req.params.emailUsernameCid;
     const query = `
@@ -431,63 +455,9 @@ router.get('/consultant/:emailUsernameCid', async (req, res) => {
 
 /*================================= Network Query=================================*/
 //Worked
-/* // Get Consultants by Sponsor ID
-router.get('/downline/:sponsorId', async (req, res) => {
-  try {
-    const sponsorId = req.params.sponsorId;
-    const query = `
-      SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
-      FROM consultants
-      WHERE sponsor_cid = ?
-    `;
-    const [rows] = await db.query(query, [sponsorId]);
 
-    if (rows.length > 0) {
-      res.json(rows);
-    } else {
-      res.status(404).json({ message: 'No consultants found for the given sponsor ID' });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
-  }
-}); */
 
-// Worked too
-/* 
-router.get('/downline/:sponsorId', async (req, res) => {
-  try {
-    const sponsorId = req.params.sponsorId;
-    const query = `
-      SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
-      FROM consultants
-      WHERE sponsor_cid = ?
-    `;
-    const [rows] = await db.query(query, [sponsorId]);
-
-    if (rows.length > 0) {
-      const downlines = [];
-      for (const consultant of rows) {
-        const downlineQuery = `
-          SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId
-          FROM consultants
-          WHERE sponsor_cid = ?
-        `;
-        const [downlineRows] = await db.query(downlineQuery, [consultant.usernameCid]);
-        consultant.downlines = downlineRows;
-        downlines.push(consultant);
-      }
-      res.json(downlines);
-    } else {
-      res.status(404).json({ message: 'No consultants found for the given sponsor ID' });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
-  }
-}); */
-
-router.get('/downline/:sponsorId', async (req, res) => {
+router.get('/downline/:sponsorId', authenticate, async (req, res) => {
   try {
     const sponsorId = req.params.sponsorId;
     const query = `
@@ -539,7 +509,7 @@ async function getDownlines(parentId) {
 
 
 // Route to get the whole of consultant details with consultant's uuid 
-router.get('/consultant-uuid/:consultantUuid', async (req, res) => {
+router.get('/consultant-uuid/:consultantUuid', authenticate, async (req, res) => {
   const { consultantUuid } = req.params;
   try {
     const [consultants] = await db.query(
@@ -588,7 +558,7 @@ router.get('/consultant-uuid/:consultantUuid', async (req, res) => {
 
 // Define the route to handle editing consultant details 
 //Tested with postman and it worked
-router.put('/consultants/edit/:consultantUuid', async (req, res) => {
+router.put('/consultants/edit/:consultantUuid', authenticate, async (req, res) => {
   try {
     const consultantUuid = req.params.consultantUuid;
     const { fullName = '', phoneNumber = '', email = '', sponsorCid = '', dateBirth = '', gender = '', address = '', city = '', state = '', country = '' } = req.body;
@@ -616,7 +586,7 @@ app.use('/api', router);
 
 // Define the route to delete a consultant based on consultant_uuid
 //Tested with postman and it worked
-router.delete('/consultants/:consultantUuid', async (req, res) => {
+router.delete('/consultants/:consultantUuid', authenticate, async (req, res) => {
   try {
     const consultantUuid = req.params.consultantUuid;
     
@@ -638,7 +608,7 @@ router.delete('/consultants/:consultantUuid', async (req, res) => {
 
 // Route  to insert consultant account details:
 // Tested and is working
-app.post('/api/consultants/accounts', async (req, res) => {
+app.post('/api/consultants/accounts', authenticate, async (req, res) => {
   try {
     // Extract the request body data
     const {consultantUuid, accountNumber, accountName, bankName} = req.body;
@@ -660,7 +630,7 @@ app.post('/api/consultants/accounts', async (req, res) => {
 
 // Route to edit consultant account details
 
-app.put('/api/consultants/accounts/:consultantUuid', async (req, res) => {
+app.put('/api/consultants/accounts/:consultantUuid', authenticate, async (req, res) => {
   const { consultantUuid } = req.params;
   const { accountNumber, accountName, bankName } = req.body;
 
@@ -682,7 +652,7 @@ app.put('/api/consultants/accounts/:consultantUuid', async (req, res) => {
 
 // Route to update consultant account details
 // Tested and working
-app.put('/api/consultants/accounts/:consultant_uuid', async (req, res) => {
+app.put('/api/consultants/accounts/:consultant_uuid', authenticate, async (req, res) => {
   try {
     const { consultant_uuid } = req.params;
     const { account_number, account_name, bank_name } = req.body;
@@ -712,7 +682,7 @@ app.put('/api/consultants/accounts/:consultant_uuid', async (req, res) => {
 
 // Route to delete consultant account details
 // Tested and working
-app.delete('/api/consultants/accounts/:consultant_uuid', async (req, res) => {
+app.delete('/api/consultants/accounts/:consultant_uuid', authenticate, async (req, res) => {
   try {
     const { consultant_uuid } = req.params;
 
@@ -762,7 +732,7 @@ const upload2 = multer({
 
 
 // Define the route to handle the image upload 
-router.post('/profile-image', upload2.single('image'), async (req, res) => {
+router.post('/profile-image',  upload2.single('image'), authenticate, async (req, res) => {
   try {
     
     const { consultantUuid = '' } = req.body;
@@ -786,35 +756,39 @@ router.post('/profile-image', upload2.single('image'), async (req, res) => {
 
 // Define the route to handle editing the profile image
 // Define the route to handle editing the profile image
-router.put('/profile-image/:consultantUuid', upload2.single('image'), async (req, res) => {
-  try {
-    const consultantUuid = req.params.consultantUuid;
-    
-    let imageUrl = '';
-    if (req.file) {
-      // Retrieve the file path of the uploaded image
-      imageUrl = path.basename(req.file.path);
-    } else {
-      // No new image selected, fetch the existing image URL from the database
-      const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
-      imageUrl = row ? row.image_url : '';
+// Modify the route definition to include the authentication middleware before the upload middleware
+router.put('/profile-image/:consultantUuid',  upload2.single('image'),
+  async (req, res) => {
+    try {
+      const consultantUuid = req.params.consultantUuid;
+
+      let imageUrl = '';
+      if (req.file) {
+        // Retrieve the file path of the uploaded image
+        imageUrl = path.basename(req.file.path);
+      } else {
+        // No new image selected, fetch the existing image URL from the database
+        const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
+        imageUrl = row ? row.image_url : '';
+      }
+
+      await db.query(
+        'UPDATE consultants_profile_images SET image_url = ? WHERE consultant_uuid = ?',
+        [imageUrl, consultantUuid]
+      );
+
+      res.json({ consultantUuid, imageUrl });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send('Server Error');
     }
-
-    await db.query(
-      'UPDATE consultants_profile_images SET image_url = ? WHERE consultant_uuid = ?',
-      [imageUrl, consultantUuid]
-    );
-
-    res.json({ consultantUuid, imageUrl });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
   }
-});
+);
+
 
 
 // Define the route to handle new listing creation
-router.post('/create-post',  async (req, res) => {
+router.post('/create-post',  authenticate, async (req, res) => {
  
   try {
     const propertyUuid = uuidv4();
@@ -859,7 +833,7 @@ router.post('/create-post',  async (req, res) => {
 
 // Define the route to handle editing consultant details 
 //Tested with postman and it worked   , city, state, date_created, date_last_modified,
-router.put('/edit-property/:propertyUuid', async (req, res) => {
+router.put('/edit-property/:propertyUuid',  authenticate, async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid;
     const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;
@@ -914,7 +888,7 @@ router.post('/property-image', upload2.single('image'), async (req, res) => {
 
 // Define the route to handle editing the property image
 // Define the route to handle editing the property image
-router.put('/edit-property-image/:propertyUuid', upload2.single('image'), async (req, res) => {
+router.put('/edit-property-image/:propertyUuid', upload2.single('image'),  async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid;
     
@@ -954,7 +928,7 @@ app.use('/api', router);
 // Endpoint to retrieve downline
 // Update your code to use the executeQuery function
 
-app.get('/api/downline/:sponsorId', async (req, res) => {
+app.get('/api/downline/:sponsorId',  authenticate, async (req, res) => {
   try {
     const { sponsorId } = req.params;
 
@@ -981,7 +955,7 @@ app.use('/api', router);
 
 // Define the route to handle editing a post
 
-router.post('/dashboard/edit-post-detail/:articleUuid', upload.single('image'), async (req, res) => {
+router.post('/dashboard/edit-post-detail/:articleUuid', upload.single('image'),  authenticate, async (req, res) => {
   const { articleUuid } = req.params;
   const { title, description, category } = req.body;
 
@@ -1028,19 +1002,14 @@ app.get('/api/dashboard/users', async (req, res) => {
   });
 
 
-  
-// route to delete a post
-app.delete('/api/dashboard/:articleUuid', async (req, res) => {
-    try {
-      const { articleUuid } = req.params;
-      await db.query('DELETE FROM listings WHERE propertyUuid=?', [articleUuid]);
-      res.json({ message: 'Post deleted successfully' });
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Server Error');
-    }
-  });
-  
+  // Error handling middleware for handling JWT errors
+app.use((err, req, res, next) => {
+  if (err.name === 'UnauthorizedError') {
+    res.status(401).json({ error: 'Invalid token' });
+  } else {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // start the server
 app.listen(3000, () => console.log('Server started on port 3000'));
