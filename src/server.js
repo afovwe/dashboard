@@ -171,7 +171,7 @@ app.delete('/api/listing/:propertyUuid',  authenticate, async (req, res) => {
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets')); // Specify the destination folder where the images will be stored
+    cb(null, path.join(__dirname, '..', 'assets')); // Specify the destination folder where the images will be stored
   },
   filename: function (req, file, cb) {
     // Generate a unique filename for the uploaded image
@@ -199,10 +199,10 @@ const upload = multer({
   }
 });
 // Create an Express router
-const router = express.Router();
+//const router = express.Router(); //Initail place before
 
 // Define the route to handle the image upload and create a new article
-router.post('/dashboard/add-listing', authenticate, async (req, res) => {
+app.post('/api/dashboard/add-listing', authenticate, async (req, res) => {
   try {
     const propertyUuid = uuidv4();
     const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;    
@@ -246,7 +246,7 @@ router.post('/dashboard/add-listing', authenticate, async (req, res) => {
 });
 
 // Register the router with your Express app
-app.use('/api', router);
+//app.use('/api', router);
 
 
 
@@ -255,7 +255,7 @@ app.use('/api', router);
 
 // Define the route to select a consultant based on consultant_uuid
 //  Tested and is working
-router.get('/consultants/:consultantUuid', async (req, res) => {
+app.get('/api/consultants/:consultantUuid', async (req, res) => {
   try {
     const consultantUuid = req.params.consultantUuid;
     const [consultant] = await db.query('SELECT * FROM consultants WHERE consultant_uuid = ?', [consultantUuid]);
@@ -276,7 +276,7 @@ router.get('/consultants/:consultantUuid', async (req, res) => {
 // Define the route to select all consultants
 //Tested with postman and it worked
 
-router.get('/consultants', async (req, res) => {
+app.get('/api/consultants', async (req, res) => {
   try {
     const [consultants] = await db.query('SELECT * FROM consultants');
     const formattedConsultants = consultants.map(consultant => ({
@@ -302,7 +302,7 @@ router.get('/consultants', async (req, res) => {
 
 // Route to get sponsorCid 
 
-router.get('/sponsor/:usernameCid', async (req, res) => {
+app.get('/api/sponsor/:usernameCid', async (req, res) => {
   const { usernameCid } = req.params;
 
   try {
@@ -332,7 +332,7 @@ router.get('/sponsor/:usernameCid', async (req, res) => {
 
 // Define the route to handle Signup
 // Tested with postman and it worked
-router.post('/consultants/add-signup', async (req, res) => {
+app.post('/api/consultants/add-signup', async (req, res) => {
   try {
     const { phoneNumber = '', email = '', password = '' } = req.body;
 
@@ -382,7 +382,7 @@ router.post('/consultants/add-signup', async (req, res) => {
 });
 
 // Route to handle login
-router.post('/consultants/login', async (req, res) => {
+app.post('/api/consultants/login', async (req, res) => {
   try {
     const { email = '', usernameCid = '', password = '' } = req.body;
 
@@ -417,17 +417,15 @@ router.post('/consultants/login', async (req, res) => {
     console.error(error);
     res.status(500).send('Server Error');
   }
-});
+}); 
 
-
-
-
+//const router = express.Router();  // for now
 // Register the router with your Express app
-app.use('/api', router);
+//app.use('/api', router);
 
 
 // Get consultant by email or username_cid
-router.get('/consultant/:emailUsernameCid', authenticate, async (req, res) => {
+app.get('/api/consultant/:emailUsernameCid', authenticate, async (req, res) => {
   try {
     const emailUsernameCid = req.params.emailUsernameCid;
     const query = `
@@ -457,7 +455,7 @@ router.get('/consultant/:emailUsernameCid', authenticate, async (req, res) => {
 //Worked
 
 
-router.get('/downline/:sponsorId', authenticate, async (req, res) => {
+app.get('/api/downline/:sponsorId', authenticate, async (req, res) => {
   try {
     const sponsorId = req.params.sponsorId;
     const query = `
@@ -509,7 +507,7 @@ async function getDownlines(parentId) {
 
 
 // Route to get the whole of consultant details with consultant's uuid 
-router.get('/consultant-uuid/:consultantUuid', authenticate, async (req, res) => {
+app.get('/api/consultant-uuid/:consultantUuid', authenticate, async (req, res) => {
   const { consultantUuid } = req.params;
   try {
     const [consultants] = await db.query(
@@ -558,7 +556,7 @@ router.get('/consultant-uuid/:consultantUuid', authenticate, async (req, res) =>
 
 // Define the route to handle editing consultant details 
 //Tested with postman and it worked
-router.put('/consultants/edit/:consultantUuid', authenticate, async (req, res) => {
+app.put('/api/consultants/edit/:consultantUuid', authenticate, async (req, res) => {
   try {
     const consultantUuid = req.params.consultantUuid;
     const { fullName = '', phoneNumber = '', email = '', sponsorCid = '', dateBirth = '', gender = '', address = '', city = '', state = '', country = '' } = req.body;
@@ -580,13 +578,13 @@ router.put('/consultants/edit/:consultantUuid', authenticate, async (req, res) =
 });
 
 // Register the router with your Express app
-app.use('/api', router);
+//app.use('/api', router);
 
 
 
 // Define the route to delete a consultant based on consultant_uuid
 //Tested with postman and it worked
-router.delete('/consultants/:consultantUuid', authenticate, async (req, res) => {
+app.delete('/api/consultants/:consultantUuid', authenticate, async (req, res) => {
   try {
     const consultantUuid = req.params.consultantUuid;
     
@@ -702,7 +700,7 @@ app.delete('/api/consultants/accounts/:consultant_uuid', authenticate, async (re
 // Create a storage engine for Multer
 const storage2 = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets')); // Specify the destination folder where the images will be stored
+    cb(null, path.join(__dirname, '..', 'assets')); // Specify the destination folder where the images will be stored
   },
   filename: function (req, file, cb) {
     // Generate a unique filename for the uploaded image
@@ -732,7 +730,7 @@ const upload2 = multer({
 
 
 // Define the route to handle the image upload 
-router.post('/profile-image',  upload2.single('image'), authenticate, async (req, res) => {
+app.post('/api/profile-image',  upload2.single('image'), authenticate, async (req, res) => {
   try {
     
     const { consultantUuid = '' } = req.body;
@@ -757,7 +755,7 @@ router.post('/profile-image',  upload2.single('image'), authenticate, async (req
 // Define the route to handle editing the profile image
 // Define the route to handle editing the profile image
 // Modify the route definition to include the authentication middleware before the upload middleware
-router.put('/profile-image/:consultantUuid',  upload2.single('image'),
+app.put('/api/profile-image/:consultantUuid',  upload2.single('image'),
   async (req, res) => {
     try {
       const consultantUuid = req.params.consultantUuid;
@@ -788,7 +786,7 @@ router.put('/profile-image/:consultantUuid',  upload2.single('image'),
 
 
 // Define the route to handle new listing creation
-router.post('/create-post',  authenticate, async (req, res) => {
+app.post('/api/create-post',  authenticate, async (req, res) => {
  
   try {
     const propertyUuid = uuidv4();
@@ -833,7 +831,7 @@ router.post('/create-post',  authenticate, async (req, res) => {
 
 // Define the route to handle editing consultant details 
 //Tested with postman and it worked   , city, state, date_created, date_last_modified,
-router.put('/edit-property/:propertyUuid',  authenticate, async (req, res) => {
+app.put('/api/edit-property/:propertyUuid',  authenticate, async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid;
     const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;
@@ -865,7 +863,7 @@ router.put('/edit-property/:propertyUuid',  authenticate, async (req, res) => {
 
 
 // Define the route to handle the property image upload 
-router.post('/property-image', upload2.single('image'), async (req, res) => {
+app.post('/api/property-image', upload2.single('image'), async (req, res) => {
   try {
     
     const { propertyUuid = '' } = req.body;
@@ -888,7 +886,7 @@ router.post('/property-image', upload2.single('image'), async (req, res) => {
 
 // Define the route to handle editing the property image
 // Define the route to handle editing the property image
-router.put('/edit-property-image/:propertyUuid', upload2.single('image'),  async (req, res) => {
+app.put('/api/edit-property-image/:propertyUuid', upload2.single('image'),  async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid;
     
@@ -916,7 +914,7 @@ router.put('/edit-property-image/:propertyUuid', upload2.single('image'),  async
 
 
 // Register the router with your Express app
-app.use('/api', router);
+//app.use('/api', router);
 
 
 
@@ -951,11 +949,11 @@ app.get('/api/downline/:sponsorId',  authenticate, async (req, res) => {
 
 
 // Register the router with your Express app
-app.use('/api', router);
+//app.use('/api', router);
 
 // Define the route to handle editing a post
 
-router.post('/dashboard/edit-post-detail/:articleUuid', upload.single('image'),  authenticate, async (req, res) => {
+app.post('/api/dashboard/edit-post-detail/:articleUuid', upload.single('image'),  authenticate, async (req, res) => {
   const { articleUuid } = req.params;
   const { title, description, category } = req.body;
 
@@ -987,7 +985,7 @@ router.post('/dashboard/edit-post-detail/:articleUuid', upload.single('image'), 
 });
 
 // Register the router with your Express app
-app.use('/api', router);
+//app.use('/api', router);
 
 
   // route to get all listings for admin
@@ -1010,6 +1008,8 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+const router = express.Router() //For NOW
 
 // start the server
 app.listen(3000, () => console.log('Server started on port 3000'));
