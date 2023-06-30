@@ -17,13 +17,7 @@ export const db = {
 }; 
 
  */
-/* 
-const pool = mysql.createPool({
-  host: 'us-cdbr-east-06.cleardb.net',
-  user: 'be3769548a58d7',
-  password: 'd7b8beda',
-  database: 'heroku_54d96e54f20bb93'
-}); */
+
 
 const pool = mysql.createPool({
   
