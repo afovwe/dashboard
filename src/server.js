@@ -8,8 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-
-
+import history from 'connect-history-api-fallback';
 
 
 dotenv.config();
@@ -27,6 +26,13 @@ app.use(express.static(path.join(__dirname, 'public/images')));
 
 app.use(cors());
 app.use(bodyParser.json());
+
+app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), {maxAge: '1y', etag: false}));
+ 
+
+
+app.use(history());
+
 
 // JWT secret key
 
@@ -171,7 +177,7 @@ app.delete('/api/listing/:propertyUuid',  authenticate, async (req, res) => {
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '..', 'assets')); // Specify the destination folder where the images will be stored
+    cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets')); // Specify the destination folder where the images will be stored
   },
   filename: function (req, file, cb) {
     // Generate a unique filename for the uploaded image
@@ -695,12 +701,11 @@ app.delete('/api/consultants/accounts/:consultant_uuid', authenticate, async (re
 });
 
 
-
- // Route to Add Profile Image
+// Route to Add Profile Image
 // Create a storage engine for Multer
 const storage2 = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '..', 'assets')); // Specify the destination folder where the images will be stored
+    cb(null, path.join(__dirname, 'public', 'images'));
   },
   filename: function (req, file, cb) {
     // Generate a unique filename for the uploaded image
@@ -709,6 +714,7 @@ const storage2 = multer.diskStorage({
     cb(null, uniqueSuffix + extname);
   }
 });
+
 
 // Create an instance of the Multer middleware
 const upload2 = multer({
@@ -1009,7 +1015,10 @@ app.use((err, req, res, next) => {
   }
 });
 
-const router = express.Router() //For NOW
-
+ const router = express.Router() //For NOW
+app.get('*', (req, res) => {
+  //res.sendFile(path.join(__dirname, '../dist/index.html'));
+  res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
+}); 
 // start the server
-app.listen(3000, () => console.log('Server started on port 3000'));
+app.listen(process.env.PORT || 3000, () => console.log('Server started on port 3000'));
