@@ -27,7 +27,7 @@ console.log('DB_PASSWORD:', process.env.DB_PASSWORD);
 console.log('DB_HOST:', process.env.DB_HOST);
 console.log('DB_DATABASE:', process.env.DB_DATABASE);
 
-const pool = mysql.createPool({
+/* const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,  
   host: process.env.DB_HOST,
@@ -48,4 +48,18 @@ const db = {
   }
 };
 
-export { db }; 
+export { db };  */
+
+
+const pool = mysql.createPool({
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,  
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE,
+});
+
+//export default db;
+
+export const db = {
+  query: (queryString, escapedValues) => pool.execute(queryString, escapedValues),
+}; 
