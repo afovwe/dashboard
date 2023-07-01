@@ -1,6 +1,6 @@
 import mysql from 'mysql2/promise';
 
-
+ /* 
  const pool = mysql.createPool({
   host: 'localhost',
   user: 'realtor',
@@ -16,7 +16,7 @@ export const db = {
 }; 
 
  
- /* 
+*/
 
 
 const pool = mysql.createPool({
@@ -46,4 +46,3 @@ const db = {
 export { db };
 
 
-*/
