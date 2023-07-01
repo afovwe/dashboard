@@ -1,7 +1,10 @@
 {
   "name": "backend_exp",
   "version": "1.0.0",
-  "description": "",
+  "description": "realtor",
+  "engines": {
+    "node": "18.16.0"
+  },
   "main": "server.js", 
     "scripts": {
       "build": "babel ./src --out-dir ./build",
