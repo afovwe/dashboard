@@ -5,7 +5,7 @@ import { db } from './database.js';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { v4 as uuidv4 } from 'uuid';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import history from 'connect-history-api-fallback';
@@ -355,7 +355,7 @@ app.post('/api/consultants/add-signup', async (req, res) => {
     }
 
     // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcryptjs.hash(password, 10);
 
     // Continue with the rest of the code
     const consultantUuid = uuidv4();
@@ -399,7 +399,7 @@ app.post('/api/consultants/login', async (req, res) => {
     }
 
     // Check if the provided password matches the hashed password
-    const isPasswordValid = await bcrypt.compare(password, user[0].password);
+    const isPasswordValid = await bcryptjs.compare(password, user[0].password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid password' });
     }

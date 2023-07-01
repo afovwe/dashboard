@@ -5,20 +5,19 @@
   "engines": {
     "node": "18.16.0"
   },
-  "main": "server.js", 
-    "scripts": {
-      "build": "babel ./src --out-dir ./build",
-      "start": "node ./build/server.js",
-      "dev": "nodemon --exec npx babel-node src/server.js",
-      "test": "echo \"Error: no test specified\" && exit 1"
-    },
-  
+  "main": "server.js",
+  "scripts": {
+    "build": "babel ./src --out-dir ./build",
+    "start": "node ./build/server.js",
+    "dev": "nodemon --exec npx babel-node src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@babel/register": "^7.21.0",
     "@babel/runtime": "^7.21.0",
-    "bcrypt": "^5.1.0",
+    "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
     "connect-history-api-fallback": "^2.0.0",
     "cors": "^2.8.5",
@@ -40,6 +39,7 @@
     "@babel/node": "^7.20.7",
     "@babel/plugin-transform-runtime": "^7.21.0",
     "@babel/preset-env": "^7.21.5",
+    "@types/bcryptjs": "^2.4.2",
     "@types/connect-history-api-fallback": "^1.5.0",
     "@types/cors": "^2.8.13",
     "@types/nodemailer": "^6.4.8"

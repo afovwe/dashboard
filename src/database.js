@@ -1,7 +1,7 @@
 import mysql from 'mysql2/promise';
 
- /* 
- const pool = mysql.createPool({
+
+/*  const pool = mysql.createPool({
   host: 'localhost',
   user: 'realtor',
   password: 'realtor',
@@ -15,8 +15,7 @@ export const db = {
   query: (queryString, escapedValues) => pool.execute(queryString, escapedValues),
 }; 
 
- 
-*/
+  */
 
 
 const pool = mysql.createPool({
