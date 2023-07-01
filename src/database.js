@@ -2,7 +2,7 @@ import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 
-/*  const pool = mysql.createPool({
+ const pool = mysql.createPool({
   host: 'localhost',
   user: 'realtor',
   password: 'realtor',
@@ -16,8 +16,8 @@ export const db = {
   query: (queryString, escapedValues) => pool.execute(queryString, escapedValues),
 }; 
 
-  */
-
+ 
+/* 
 
 // Load environment variables from .env file
 dotenv.config();
@@ -48,4 +48,4 @@ const db = {
   }
 };
 
-export { db };
+export { db }; */
