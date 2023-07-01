@@ -5,6 +5,7 @@ import { db } from './database.js';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { v4 as uuidv4 } from 'uuid';
+import { validationResult } from 'express-validator';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -388,8 +389,15 @@ app.post('/api/consultants/add-signup', async (req, res) => {
 });
 
 // Route to handle login
+
 app.post('/api/consultants/login', async (req, res) => {
   try {
+    // Validate request body
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
     const { email = '', usernameCid = '', password = '' } = req.body;
 
     // Find the user by email or usernameCid
@@ -399,7 +407,7 @@ app.post('/api/consultants/login', async (req, res) => {
     }
 
     // Check if the provided password matches the hashed password
-    const isPasswordValid = await bcryptjs.compare(password, user[0].password);
+    const isPasswordValid = bcryptjs.compareSync(password, user[0].password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid password' });
     }
@@ -423,11 +431,12 @@ app.post('/api/consultants/login', async (req, res) => {
     console.error(error);
     res.status(500).send('Server Error');
   }
-}); 
+});
+
 
 //const router = express.Router();  // for now
 // Register the router with your Express app
-//app.use('/api', router);
+
 
 
 // Get consultant by email or username_cid
