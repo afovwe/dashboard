@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "build": "babel ./src --out-dir ./build",
-    "start": "node ./build/server.js",
-    "dev": "nodemon --exec npx babel-node src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+    "scripts": {
+      "build": "babel ./src --out-dir ./build",
+      "start": "node ./build/server.js",
+      "dev": "nodemon --exec npx babel-node src/server.js",
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
   
   "author": "",
   "license": "ISC",
