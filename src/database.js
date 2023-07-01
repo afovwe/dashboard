@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
 
 
 /*  const pool = mysql.createPool({
@@ -18,14 +19,14 @@ export const db = {
   */
 
 
+// Load environment variables from .env file
+dotenv.config();
+
 const pool = mysql.createPool({
-  
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,  
   host: process.env.DB_HOST,
   database: process.env.DB_DATABASE,
- 
-
 });
 
 const db = {
@@ -36,12 +37,10 @@ const db = {
       connection.release();
       return rows;
     } catch (error) {
+      console.error('Error executing database query:', error);
       throw error;
     }
   }
 };
 
-//export default db;
 export { db };
-
-
