@@ -722,7 +722,8 @@ app.delete('/api/consultants/accounts/:consultant_uuid', authenticate, async (re
 // Create a storage engine for Multer
 const storage2 = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, 'public', 'images'));
+   // cb(null, path.join(__dirname, 'public', 'images'));
+    cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets')); // Specify the destination folder where the images will be stored
   },
   filename: function (req, file, cb) {
     // Generate a unique filename for the uploaded image
