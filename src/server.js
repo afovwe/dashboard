@@ -18,21 +18,29 @@ dotenv.config();
 // Use Firebase Admin in your Express routes and middleware
 const app = express();
 
-// Serve static files from the public/images directory
+// Enable CORS
+//app.use(cors());
 
-// Initialize Firebase Admin using your service account credentials
+// Enable CORS for all origins
+app.use(cors({
+  origin: '*'
+}));
 
 // Serve static files from the public/images directory
 app.use(express.static(path.join(__dirname, 'public/images')));
-
+app.set('trust proxy', true);
 
 app.use(bodyParser.json());
 
-app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), {maxAge: '1y', etag: false}));
- 
-
+app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
 app.use(history());
+
+// Serve static files from the public/images directory
+
+app.use(express.static(path.join(__dirname, 'public/images')));
+
+
 
 
 // JWT secret key
@@ -60,7 +68,6 @@ const authenticate = (req, res, next) => {
 };
 
 
-app.use(cors());
 
 // Example route that requires authentication
 app.get('/api/listings', authenticate, async (req, res) => {
@@ -1003,17 +1010,10 @@ app.post('/api/dashboard/edit-post-detail/:articleUuid', upload.single('image'),
 // Register the router with your Express app
 //app.use('/api', router);
 
+const router = express.Router();
 
-  // route to get all listings for admin
-app.get('/api/dashboard/users', async (req, res) => {
-    try {
-      const results = await getListingsAllAdminRoute.handler(req, res);
-      res.json(results);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Server Error');
-    }
-  });
+// Register the router with your Express app
+app.use('/api', router);
 
 
   // Error handling middleware for handling JWT errors
@@ -1025,7 +1025,7 @@ app.use((err, req, res, next) => {
   }
 });
 
- const router = express.Router() //For NOW
+
 app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));

@@ -1,8 +1,8 @@
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
-/* 
 
- const pool = mysql.createPool({
+
+/*  const pool = mysql.createPool({
   host: 'localhost',
   user: 'realtor',
   password: 'realtor',
@@ -14,20 +14,22 @@ import dotenv from 'dotenv';
 
 export const db = {
   query: (queryString, escapedValues) => pool.execute(queryString, escapedValues),
-}; 
- */
+};  */
+
  
 
 
 // Load environment variables from .env file
 dotenv.config();
 
-console.log('DB_USER:', process.env.DB_USER);
-console.log('DB_PASSWORD:', process.env.DB_PASSWORD);
-console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_DATABASE:', process.env.DB_DATABASE);
+/* 
+  
+  console.log('DB_USER:', process.env.DB_USER);
+  console.log('DB_PASSWORD:', process.env.DB_PASSWORD);
+  console.log('DB_HOST:', process.env.DB_HOST);
+  console.log('DB_DATABASE:', process.env.DB_DATABASE);
 
-/* const pool = mysql.createPool({
+  const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,  
   host: process.env.DB_HOST,
@@ -51,6 +53,11 @@ const db = {
 export { db };  */
 
 
+console.log('DB_USER:', process.env.DB_USER);
+console.log('DB_PASSWORD:', process.env.DB_PASSWORD);
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('DB_DATABASE:', process.env.DB_DATABASE);
+
 const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,  
@@ -62,4 +69,4 @@ const pool = mysql.createPool({
 
 export const db = {
   query: (queryString, escapedValues) => pool.execute(queryString, escapedValues),
-}; 
+};  
