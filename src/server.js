@@ -25,7 +25,7 @@ const app = express();
 // Serve static files from the public/images directory
 app.use(express.static(path.join(__dirname, 'public/images')));
 
-app.use(cors());
+
 app.use(bodyParser.json());
 
 app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), {maxAge: '1y', etag: false}));
@@ -60,6 +60,7 @@ const authenticate = (req, res, next) => {
 };
 
 
+app.use(cors());
 
 // Example route that requires authentication
 app.get('/api/listings', authenticate, async (req, res) => {
