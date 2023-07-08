@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { db } from './database.js';
 import cors from 'cors';
 import bodyParser from 'body-parser';
@@ -39,8 +40,6 @@ app.use(history());
 // Serve static files from the public/images directory
 
 app.use(express.static(path.join(__dirname, 'public/images')));
-
-
 
 
 // JWT secret key
@@ -722,8 +721,8 @@ app.delete('/api/consultants/accounts/:consultant_uuid', authenticate, async (re
 // Create a storage engine for Multer
 const storage2 = multer.diskStorage({
   destination: function (req, file, cb) {
-   // cb(null, path.join(__dirname, 'public', 'images'));
-    cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets')); // Specify the destination folder where the images will be stored
+    cb(null, path.join(__dirname, 'public', 'images'));
+    //cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets')); // Specify the destination folder where the images will be stored
   },
   filename: function (req, file, cb) {
     // Generate a unique filename for the uploaded image
@@ -761,7 +760,14 @@ app.post('/api/profile-image',  upload2.single('image'), authenticate, async (re
 
     // Retrieve the file path of the uploaded image
     //const imagePath = req.file ? req.file.path : '';
-    const imageUrl = req.file ? path.basename(req.file.path) : '';
+     //const imageUrl = req.file ? path.basename(req.file.path) : '';
+    //const imageBaseName = req.file ? path.basename(req.file.path) : '';      
+    //const imageUrl = 'public/images/' +  req.file ? path.basename(req.file.path) : '';  
+
+    const imageBaseName = req.file ? path.basename(req.file.path) : '';  
+    const imageUrl = path.join('public', 'images', imageBaseName).replace(/\\/g, '/');
+    //const imageUrl = path.join("public", "images", imageBaseName);
+
 
     await db.query(
       'INSERT INTO consultants_profile_images (consultant_uuid, image_url) VALUES (?, ?)',
@@ -769,6 +775,7 @@ app.post('/api/profile-image',  upload2.single('image'), authenticate, async (re
     );
 
     res.json({ consultantUuid, imageUrl });
+    console.log('imageFolder:', imageFolder);
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
@@ -779,33 +786,56 @@ app.post('/api/profile-image',  upload2.single('image'), authenticate, async (re
 // Define the route to handle editing the profile image
 // Define the route to handle editing the profile image
 // Modify the route definition to include the authentication middleware before the upload middleware
-app.put('/api/profile-image/:consultantUuid',  upload2.single('image'),
-  async (req, res) => {
-    try {
-      const consultantUuid = req.params.consultantUuid;
 
-      let imageUrl = '';
-      if (req.file) {
-        // Retrieve the file path of the uploaded image
-        imageUrl = path.basename(req.file.path);
-      } else {
-        // No new image selected, fetch the existing image URL from the database
-        const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
-        imageUrl = row ? row.image_url : '';
+app.put('/api/profile-image/:consultantUuid', upload2.single('image'), async (req, res) => {
+  try {
+    const consultantUuid = req.params.consultantUuid;
+
+    let imageUrl = '';
+    if (req.file) {
+      // Retrieve the file path of the uploaded image
+      const imageBaseName = path.basename(req.file.path);
+      imageUrl = path.join('public', 'images', imageBaseName).replace(/\\/g, '/');
+
+      // Fetch the existing image URL from the database
+      const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
+      const existingImageUrl = row ? row.image_url : '';
+
+      if (existingImageUrl) {
+        // Delete the previous image from the storage location
+        const previousImagePath = path.join(__dirname, existingImageUrl.replace(/\//g, '\\'));
+
+        if (fs.existsSync(previousImagePath)) {
+          fs.unlink(previousImagePath, (error) => {
+            if (error) {
+              console.error('Error deleting previous image:', error);
+            } else {
+              console.log('Previous image deleted successfully.');
+            }
+          });
+        } else {
+          console.log('Previous image does not exist at the specified path.');
+        }
+        
       }
-
-      await db.query(
-        'UPDATE consultants_profile_images SET image_url = ? WHERE consultant_uuid = ?',
-        [imageUrl, consultantUuid]
-      );
-
-      res.json({ consultantUuid, imageUrl });
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Server Error');
+    } else {
+      // No new image selected, fetch the existing image URL from the database
+      const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
+      imageUrl = row ? row.image_url : '';
     }
+
+    await db.query(
+      'UPDATE consultants_profile_images SET image_url = ? WHERE consultant_uuid = ?',
+      [imageUrl, consultantUuid]
+    );
+
+    res.json({ consultantUuid, imageUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
   }
-);
+});
+
 
 
 
@@ -1027,10 +1057,10 @@ app.use((err, req, res, next) => {
 });
 
 
-app.get('*', (req, res) => {
+ app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-}); 
+});  
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
