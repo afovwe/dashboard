@@ -40,6 +40,9 @@ app.use(history());
 // Serve static files from the public/images directory
 
 app.use(express.static(path.join(__dirname, 'public/images')));
+//app.use(express.static('public'));
+// Serve the images from the public/images directory
+app.use('/images', express.static(path.join(__dirname, 'public/images')));
 
 
 // JWT secret key
@@ -755,8 +758,9 @@ const upload2 = multer({
 // Define the route to handle the image upload 
 app.post('/api/profile-image',  upload2.single('image'), authenticate, async (req, res) => {
   try {
-    
-    const { consultantUuid = '' } = req.body;
+     const consultantUuid = req.params.consultantUuid;
+    let imageUrl = '';
+   
 
     // Retrieve the file path of the uploaded image
     //const imagePath = req.file ? req.file.path : '';
@@ -765,7 +769,7 @@ app.post('/api/profile-image',  upload2.single('image'), authenticate, async (re
     //const imageUrl = 'public/images/' +  req.file ? path.basename(req.file.path) : '';  
 
     const imageBaseName = req.file ? path.basename(req.file.path) : '';  
-    const imageUrl = path.join('public', 'images', imageBaseName).replace(/\\/g, '/');
+     imageUrl = `/images/${imageBaseName}`;
     //const imageUrl = path.join("public", "images", imageBaseName);
 
 
@@ -775,7 +779,7 @@ app.post('/api/profile-image',  upload2.single('image'), authenticate, async (re
     );
 
     res.json({ consultantUuid, imageUrl });
-    console.log('imageFolder:', imageFolder);
+   
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
@@ -795,7 +799,8 @@ app.put('/api/profile-image/:consultantUuid', upload2.single('image'), async (re
     if (req.file) {
       // Retrieve the file path of the uploaded image
       const imageBaseName = path.basename(req.file.path);
-      imageUrl = path.join('public', 'images', imageBaseName).replace(/\\/g, '/');
+      //imageUrl = path.join('public', 'images', imageBaseName).replace(/\\/g, '/');
+      imageUrl = `/images/${imageBaseName}`;
 
       // Fetch the existing image URL from the database
       const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
@@ -917,21 +922,26 @@ app.put('/api/edit-property/:propertyUuid',  authenticate, async (req, res) => {
 
 
 // Define the route to handle the property image upload 
-app.post('/api/property-image', upload2.single('image'), async (req, res) => {
+// Define the route to handle the image upload
+app.post('/api/profile-image', upload2.single('image'), authenticate, async (req, res) => {
   try {
-    
-    const { propertyUuid = '' } = req.body;
+    const { consultantUuid } = req.body;
+
+    // Verify that the consultantUuid is a valid value
+    if (!consultantUuid) {
+      return res.status(400).json({ error: 'Invalid consultant UUID' });
+    }
 
     // Retrieve the file path of the uploaded image
-    //const imagePath = req.file ? req.file.path : '';
     const imageUrl = req.file ? path.basename(req.file.path) : '';
+    //const imageUrl = `/images/${imageBaseName}`;
 
-    await db.query(
-      'INSERT INTO property_profile_images (property_uuid, image_url) VALUES (?, ?)',
-      [propertyUuid, imageUrl]
+    const result = await db.query(
+      'INSERT INTO consultants_profile_images (consultant_uuid, image_url) VALUES (?, ?)',
+      [consultantUuid, imageUrl]
     );
-
-    res.json({ propertyUuid, imageUrl });
+console.log(result); // Log the database query result
+    res.json({ consultantUuid, imageUrl });
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
@@ -952,6 +962,7 @@ app.put('/api/edit-property-image/:propertyUuid', upload2.single('image'),  asyn
       // No new image selected, fetch the existing image URL from the database
       const [row] = await db.query('SELECT image_url FROM property_profile_images WHERE property_uuid = ?', [propertyUuid]);
       imageUrl = row ? row.image_url : '';
+      
     }
 
     await db.query(
