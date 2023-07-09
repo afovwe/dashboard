@@ -19,9 +19,6 @@ dotenv.config();
 // Use Firebase Admin in your Express routes and middleware
 const app = express();
 
-// Enable CORS
-//app.use(cors());
-
 // Enable CORS for all origins
 app.use(cors({
   origin: '*'
@@ -33,9 +30,9 @@ app.set('trust proxy', true);
 
 app.use(bodyParser.json());
 
-app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
+//app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
-app.use(history());
+//app.use(history());
 
 // Serve static files from the public/images directory
 
@@ -756,16 +753,12 @@ const upload2 = multer({
 
 
 // Define the route to handle the image upload 
-app.post('/api/profile-image',  upload2.single('image'), authenticate, async (req, res) => {
+// Define the route to handle the image upload 
+app.post('/api/profile-image',  upload2.single('image'), async (req, res) => {
   try {
-     const consultantUuid = req.params.consultantUuid;
+     const { consultantUuid } = req.body;
     let imageUrl = '';
    
-
-    // Retrieve the file path of the uploaded image
-    //const imagePath = req.file ? req.file.path : '';
-     //const imageUrl = req.file ? path.basename(req.file.path) : '';
-    //const imageBaseName = req.file ? path.basename(req.file.path) : '';      
     //const imageUrl = 'public/images/' +  req.file ? path.basename(req.file.path) : '';  
 
     const imageBaseName = req.file ? path.basename(req.file.path) : '';  
@@ -785,6 +778,8 @@ app.post('/api/profile-image',  upload2.single('image'), authenticate, async (re
     res.status(500).send('Server Error');
   }
 });
+
+
 
 
 // Define the route to handle editing the profile image
@@ -857,7 +852,6 @@ app.post('/api/create-post',  authenticate, async (req, res) => {
     const year = date_ob.getFullYear();
     const hour = date_ob.getHours();
     const minute = date_ob.getMinutes();
-    const seconds = date_ob.getSeconds();
     const dateCreated = year + '-' + (month < 10 ? '0' + month : month) + '-' + (date < 10 ? '0' + date : date) + ' ' + hour + ':' + minute;
     const dateLastModified = null;
     const views = 0;
@@ -869,6 +863,11 @@ app.post('/api/create-post',  authenticate, async (req, res) => {
       'INSERT INTO listings (property_uuid, title, description, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [propertyUuid, title, description, category, price, city, state, dateCreated, dateLastModified, views]
     );
+/* 
+    const result = await db.query(
+  'INSERT INTO listings (property_uuid, title, description, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, CAST(? AS SIGNED), ?, ?, ?, ?, ?)',
+  [propertyUuid, title, description, category, price, city, state, dateCreated, dateLastModified, views]
+); */
    
     res.json({     
       propertyUuid,
@@ -952,7 +951,7 @@ console.log(result); // Log the database query result
 // Define the route to handle editing the property image
 app.put('/api/edit-property-image/:propertyUuid', upload2.single('image'),  async (req, res) => {
   try {
-    const propertyUuid = req.params.propertyUuid;
+    const propertyUuid = req.params.propertyUuid;  
     
     let imageUrl = '';
     if (req.file) {
@@ -1068,10 +1067,10 @@ app.use((err, req, res, next) => {
 });
 
 
- app.get('*', (req, res) => {
+/*  app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-});  
+});   */
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
