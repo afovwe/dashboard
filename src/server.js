@@ -30,9 +30,10 @@ app.set('trust proxy', true);
 
 app.use(bodyParser.json());
 
-app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
-app.use(history());
+//app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
+
+//app.use(history());
 
 // Serve static files from the public/images directory
 
@@ -151,7 +152,7 @@ app.get('/api/listing/:propertyUuid', authenticate,  async (req, res) => {
 
 // Route to delete a listing by propertyUuid
 // Route to delete a listing by propertyUuid
-app.delete('/api/listing/:propertyUuid',  authenticate, async (req, res) => {
+app.delete('/api/listing/:propertyUuid',  async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid || null; // Provide a default value of null if propertyUuid is not available
 
@@ -840,7 +841,7 @@ app.put('/api/profile-image/:consultantUuid', upload2.single('image'), async (re
 
 
 // Define the route to handle new listing creation
-app.post('/api/create-post',  authenticate, async (req, res) => {
+app.post('/api/create-post', async (req, res) => {
  
   try {
     const propertyUuid = uuidv4();
@@ -920,9 +921,9 @@ app.put('/api/edit-property/:propertyUuid',  authenticate, async (req, res) => {
 });
 
 
-// Define the route to handle the property image upload 
+
 // Define the route to handle the image upload
-app.post('/api/profile-image', upload2.single('image'), authenticate, async (req, res) => {
+app.post('/api/profile-image', upload2.single('image'), async (req, res) => {
   try {
     const { consultantUuid } = req.body;
 
@@ -932,8 +933,8 @@ app.post('/api/profile-image', upload2.single('image'), authenticate, async (req
     }
 
     // Retrieve the file path of the uploaded image
-    const imageUrl = req.file ? path.basename(req.file.path) : '';
-    //const imageUrl = `/images/${imageBaseName}`;
+    const imageBaseName = req.file ? path.basename(req.file.path) : '';
+    const imageUrl = `/images/${imageBaseName}`;
 
     const result = await db.query(
       'INSERT INTO consultants_profile_images (consultant_uuid, image_url) VALUES (?, ?)',
@@ -947,6 +948,68 @@ console.log(result); // Log the database query result
   }
 });
 
+// Define the route to handle editing the profile image
+app.put('/api/edit-profile-image/:consultantUuid', upload2.single('image'),  async (req, res) => {
+  try {
+    const consultantUuid = req.params.consultantUuid;  
+    
+    let imageUrl = '';
+    if (req.file) {
+      // Retrieve the file path of the uploaded image
+     // imageUrl = path.basename(req.file.path);
+          // Retrieve the file path of the uploaded image
+      const imageBaseName = req.file ? path.basename(req.file.path) : '';
+      imageUrl = `/images/${imageBaseName}`;
+    } else {
+      // No new image selected, fetch the existing image URL from the database
+      const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
+      imageUrl = row ? row.image_url : '';
+      
+    }
+
+    await db.query(
+      'UPDATE consultants_profile_images SET image_url = ? WHERE consultant_uuid = ?',
+      [imageUrl, consultantUuid]
+    );
+
+    res.json({ consultantUuid, imageUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// Define the route to handle the property image upload
+// Define the route to handle the property image upload
+app.post('/api/property-image', upload2.single('image'), async (req, res) => {
+  try {
+    const { propertyUuid } = req.body;
+
+    // Verify that the propertyUuid is a valid value
+    if (!propertyUuid) {
+      return res.status(400).json({ error: 'Invalid propertyUuid UUID' });
+    }
+
+    // Retrieve the file path of the uploaded image
+    const imageBaseName = req.file ? path.basename(req.file.path) : '';
+    const imageUrl = `/images/${imageBaseName}`;
+
+    const result = await db.query(
+      'INSERT INTO property_profile_images (property_uuid, image_url) VALUES (?, ?)',
+      [propertyUuid, imageUrl]
+    );
+    
+    console.log(result); // Log the database query result
+
+    res.json({ success: true, propertyUuid, imageUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+});
+
+
 // Define the route to handle editing the property image
 // Define the route to handle editing the property image
 app.put('/api/edit-property-image/:propertyUuid', upload2.single('image'),  async (req, res) => {
@@ -956,7 +1019,10 @@ app.put('/api/edit-property-image/:propertyUuid', upload2.single('image'),  asyn
     let imageUrl = '';
     if (req.file) {
       // Retrieve the file path of the uploaded image
-      imageUrl = path.basename(req.file.path);
+     // imageUrl = path.basename(req.file.path);
+          // Retrieve the file path of the uploaded image
+      const imageBaseName = req.file ? path.basename(req.file.path) : '';
+      imageUrl = `/images/${imageBaseName}`;
     } else {
       // No new image selected, fetch the existing image URL from the database
       const [row] = await db.query('SELECT image_url FROM property_profile_images WHERE property_uuid = ?', [propertyUuid]);
@@ -1067,10 +1133,11 @@ app.use((err, req, res, next) => {
 });
 
 
- app.get('*', (req, res) => {
+/*  app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-}); 
+});  */
+
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
