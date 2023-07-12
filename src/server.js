@@ -30,7 +30,6 @@ app.set('trust proxy', true);
 
 app.use(bodyParser.json());
 
-
 app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
 app.use(history());
@@ -783,7 +782,6 @@ app.post('/api/profile-image',  upload2.single('image'), async (req, res) => {
 
 
 
-// Define the route to handle editing the profile image
 // Define the route to handle editing the profile image
 // Modify the route definition to include the authentication middleware before the upload middleware
 
