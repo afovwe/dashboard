@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 // Load environment variables from .env file
 dotenv.config();
-
+/* 
  const pool = mysql.createPool({
   host: 'localhost',
   user: 'realtor',
@@ -16,14 +16,14 @@ dotenv.config();
 
 export const db = {
   query: (queryString, escapedValues) => pool.execute(queryString, escapedValues),
-}; 
+};  */
 
  
-
-
-
-
 /* 
+
+
+
+
   
   console.log('DB_USER:', process.env.DB_USER);
   console.log('DB_PASSWORD:', process.env.DB_PASSWORD);
@@ -51,15 +51,14 @@ const db = {
   }
 };
 
-export { db };  */
-
+export { db };   */
 
 /* console.log('DB_USER:', process.env.DB_USER);
 console.log('DB_PASSWORD:', process.env.DB_PASSWORD);
 console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_DATABASE:', process.env.DB_DATABASE); */
-
-/* const pool = mysql.createPool({
+console.log('DB_DATABASE:', process.env.DB_DATABASE); 
+ */
+ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,  
   host: process.env.DB_HOST,
@@ -70,4 +69,4 @@ console.log('DB_DATABASE:', process.env.DB_DATABASE); */
 
 export const db = {
   query: (queryString, escapedValues) => pool.execute(queryString, escapedValues),
-};   */
+}; 
