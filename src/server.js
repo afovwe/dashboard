@@ -30,9 +30,9 @@ app.set('trust proxy', true);
 
 app.use(bodyParser.json());
 
-app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
+//app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
-app.use(history());
+//app.use(history());
 
 // Serve static files from the public/images directory
 
@@ -930,6 +930,8 @@ app.post('/api/profile-image', upload2.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid consultant UUID' });
     }
 
+    
+
     // Retrieve the file path of the uploaded image
     const imageBaseName = req.file ? path.basename(req.file.path) : '';
     const imageUrl = `/images/${imageBaseName}`;
@@ -1131,10 +1133,10 @@ app.use((err, req, res, next) => {
 });
 
 
-  app.get('*', (req, res) => {
+/*   app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-});  
+});  */ 
 
 // start the server
 const port = process.env.PORT || 3000;
