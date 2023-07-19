@@ -6,6 +6,7 @@ import { db } from './database.js';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { v4 as uuidv4 } from 'uuid';
+import { v2 as cloudinary } from 'cloudinary';
 import { validationResult } from 'express-validator';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -24,15 +25,22 @@ app.use(cors({
   origin: '*'
 }));
 
+// Configure Cloudinary with your credentials
+cloudinary.config({
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.API_KEY,
+  api_secret: process.env.API_SECRET
+});
+
 // Serve static files from the public/images directory
 app.use(express.static(path.join(__dirname, 'public/images')));
 app.set('trust proxy', true);
 
 app.use(bodyParser.json());
 
-//app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
+app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
-//app.use(history());
+app.use(history());
 
 // Serve static files from the public/images directory
 
@@ -151,7 +159,7 @@ app.get('/api/listing/:propertyUuid', authenticate,  async (req, res) => {
 
 // Route to delete a listing by propertyUuid
 // Route to delete a listing by propertyUuid
-app.delete('/api/listing/:propertyUuid',  async (req, res) => {
+app.delete('/api/listing/:propertyUuid', async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid || null; // Provide a default value of null if propertyUuid is not available
 
@@ -454,9 +462,9 @@ app.get('/api/consultant/:emailUsernameCid', authenticate, async (req, res) => {
       SELECT c.consultant_uuid AS consultantUuid, c.fname AS fullName, c.phone_number AS phoneNumber,
         c.email, c.username_cid AS usernameCid, c.sponsor_cid AS sponsorCid, c.password,
         c.registration_date AS registrationDate, c.gender, c.city, c.team_id AS teamId, c.rank,
-        cp.image_url AS imageUrl
+        cp.secure_url AS imageUrl
       FROM consultants c
-      LEFT JOIN consultants_profile_images cp ON c.consultant_uuid = cp.consultant_uuid
+      LEFT JOIN consultants_profile_image cp ON c.consultant_uuid = cp.consultant_uuid
       WHERE c.email = ? OR c.username_cid = ?
       LIMIT 1`;
     const [consultant] = await db.query(query, [emailUsernameCid, emailUsernameCid]);
@@ -535,10 +543,10 @@ app.get('/api/consultant-uuid/:consultantUuid', authenticate, async (req, res) =
     const [consultants] = await db.query(
       `SELECT c.consultant_uuid, c.fname, c.phone_number, c.email, c.username_cid, c.sponsor_cid, c.registration_date, c.date_birth, c.gender, c.address, c.city,  c.state, c.country,
                 cbd.account_number, cbd.account_name, cbd.bank_name,
-                cpi.image_url
+                cpi.secure_url
           FROM consultants c
           LEFT JOIN consultant_bank_details cbd ON c.consultant_uuid = cbd.consultant_uuid
-          LEFT JOIN consultants_profile_images cpi ON c.consultant_uuid = cpi.consultant_uuid
+          LEFT JOIN consultants_profile_image cpi ON c.consultant_uuid = cpi.consultant_uuid
       WHERE c.consultant_uuid = ?`,
       [consultantUuid]
     );
@@ -566,7 +574,7 @@ app.get('/api/consultant-uuid/:consultantUuid', authenticate, async (req, res) =
       accountNumber: consultant.account_number,
       accountName: consultant.account_name,
       bankName: consultant.bank_name,
-      imageUrl: consultant.image_url
+      imageUrl: consultant.secure_url
     };
 
     res.json(selectedConsultant);
@@ -717,125 +725,142 @@ app.delete('/api/consultants/accounts/:consultant_uuid', authenticate, async (re
 });
 
 
-// Route to Add Profile Image
-// Create a storage engine for Multer
-const storage2 = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, 'public', 'images'));
-    //cb(null, path.join(__dirname, '..', '..', 'realtor_exp_frontend', 'src', 'assets')); // Specify the destination folder where the images will be stored
-  },
-  filename: function (req, file, cb) {
-    // Generate a unique filename for the uploaded image
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const extname = path.extname(file.originalname);
-    cb(null, uniqueSuffix + extname);
+
+const storage5 = multer.diskStorage({
+  filename: function (req,file,cb) {
+    cb(null, file.originalname)
   }
 });
 
+const upload2 = multer({ storage: storage5 });
 
-// Create an instance of the Multer middleware
-const upload2 = multer({
-  storage: storage2,
-  limits: {
-    fileSize: 1024 * 1024 * 5 // 5MB file size limit
-  },
-  fileFilter: function (req, file, cb) {
-    // Accept only JPG, JPEG, and PNG files
-    const filetypes = /jpeg|jpg|png/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error('Only JPG, JPEG, and PNG file types are allowed'));
-  }
-});
+app.post('/api/profile-image', upload2.single('image'), async function (req, res) {
+  const { originalname: original_filename, path: file_path } = req.file;
+  //const { consultant_uuid } = req.params;
+   const { consultantUuid } = req.body;
 
-
-// Define the route to handle the image upload 
-// Define the route to handle the image upload 
-app.post('/api/profile-image',  upload2.single('image'), async (req, res) => {
   try {
-     const { consultantUuid } = req.body;
-    let imageUrl = '';
-   
-    //const imageUrl = 'public/images/' +  req.file ? path.basename(req.file.path) : '';  
+    const result = await cloudinary.uploader.upload(file_path);
+    const { url, secure_url } = result;
 
-    const imageBaseName = req.file ? path.basename(req.file.path) : '';  
-     imageUrl = `/images/${imageBaseName}`;
-    //const imageUrl = path.join("public", "images", imageBaseName);
+    // Create a new entry in the database
+    const newEntry = {
+      consultantUuid,
+      original_filename,
+      url,
+      secure_url,
+      image_name: original_filename // Assuming image_name is the same as the original_filename
+      
+    };
 
+   await db.query('INSERT INTO consultants_profile_image (consultant_uuid, original_filename, url, secure_url, image_name) VALUES (?, ?, ?, ?, ?)',
+  [newEntry.consultantUuid, newEntry.original_filename, newEntry.url, newEntry.secure_url, newEntry.image_name]);
 
-    await db.query(
-      'INSERT INTO consultants_profile_images (consultant_uuid, image_url) VALUES (?, ?)',
-      [consultantUuid, imageUrl]
-    );
-
-    res.json({ consultantUuid, imageUrl });
-   
+    res.status(200).json({
+      success: true,
+      message: 'Uploaded and inserted into the database!',
+      data: result
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error'
+    });
   }
 });
 
+app.put('/api/profile-image/:consultantUuid', upload2.single('image'), async function (req, res) {
+  const consultantUuid = req.params.consultantUuid;
+  const { originalname: original_filename, path: file_path } = req.file;
 
-
-
-// Define the route to handle editing the profile image
-// Modify the route definition to include the authentication middleware before the upload middleware
-
-app.put('/api/profile-image/:consultantUuid', upload2.single('image'), async (req, res) => {
   try {
-    const consultantUuid = req.params.consultantUuid;
+    const result = await cloudinary.uploader.upload(file_path);
+    const { url, secure_url } = result;
 
-    let imageUrl = '';
-    if (req.file) {
-      // Retrieve the file path of the uploaded image
-      const imageBaseName = path.basename(req.file.path);
-      //imageUrl = path.join('public', 'images', imageBaseName).replace(/\\/g, '/');
-      imageUrl = `/images/${imageBaseName}`;
+    // Update the image details in the database for the specific consultant
+    const query = 'UPDATE consultants_profile_image SET original_filename = ?, url = ?, secure_url = ? WHERE consultant_uuid = ?';
+    await db.query(query, [original_filename, url, secure_url, consultantUuid]);
 
-      // Fetch the existing image URL from the database
-      const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
-      const existingImageUrl = row ? row.image_url : '';
-
-      if (existingImageUrl) {
-        // Delete the previous image from the storage location
-        const previousImagePath = path.join(__dirname, existingImageUrl.replace(/\//g, '\\'));
-
-        if (fs.existsSync(previousImagePath)) {
-          fs.unlink(previousImagePath, (error) => {
-            if (error) {
-              console.error('Error deleting previous image:', error);
-            } else {
-              console.log('Previous image deleted successfully.');
-            }
-          });
-        } else {
-          console.log('Previous image does not exist at the specified path.');
-        }
-        
-      }
-    } else {
-      // No new image selected, fetch the existing image URL from the database
-      const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
-      imageUrl = row ? row.image_url : '';
-    }
-
-    await db.query(
-      'UPDATE consultants_profile_images SET image_url = ? WHERE consultant_uuid = ?',
-      [imageUrl, consultantUuid]
-    );
-
-    res.json({ consultantUuid, imageUrl });
+    res.status(200).json({
+      success: true,
+      message: 'Image updated successfully!',
+      data: result
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating image',
+    });
   }
 });
 
 
+// Add Image to Property property_uuid image_url
+app.post('/api/property-image', upload2.single('image'), async function (req, res) {
+  const { originalname: original_filename, path: file_path } = req.file;
+    const { propertyUuid } = req.body;
+
+  try {
+    const result = await cloudinary.uploader.upload(file_path);
+    const { secure_url } = result;
+
+    // Create a new entry in the database
+    const newEntry = {
+      propertyUuid, 
+	    original_filename,	  
+      secure_url    
+      
+    };
+
+   await db.query('INSERT INTO property_profile_images (property_uuid, image_url, original_filename) VALUES (?, ?, ?)',
+  [newEntry.propertyUuid, newEntry.secure_url,  newEntry.original_filename]);
+
+    res.status(200).json({
+      success: true,
+      message: 'image Uploaded and inserted into the database!',
+      data: result
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error'
+    });
+  }
+});
+
+
+// Change Property Image
+// Change Property Image 
+// Define the route to handle editing the property image
+// Define the route to handle editing the property image
+app.put('/api/edit-property-image/:propertyUuid', upload2.single('image'), async function (req, res) {
+  const propertyUuid = req.params.propertyUuid;
+  const { originalname: original_filename, path: file_path } = req.file;
+
+  try {
+    const result = await cloudinary.uploader.upload(file_path);
+    const { secure_url } = result;
+
+    // Update the image details in the database for the specific consultant
+    const query = 'UPDATE property_profile_images SET  image_url = ?, original_filename = ? WHERE property_uuid = ?';
+    await db.query(query, [ secure_url, original_filename, propertyUuid]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Image updated successfully!',
+      data: result
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating image',
+    });
+  }
+});
 
 
 // Define the route to handle new listing creation
@@ -862,11 +887,7 @@ app.post('/api/create-post', async (req, res) => {
       'INSERT INTO listings (property_uuid, title, description, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [propertyUuid, title, description, category, price, city, state, dateCreated, dateLastModified, views]
     );
-/* 
-    const result = await db.query(
-  'INSERT INTO listings (property_uuid, title, description, category, price, city, state, date_created, date_last_modified, views) VALUES (?, ?, ?, ?, CAST(? AS SIGNED), ?, ?, ?, ?, ?)',
-  [propertyUuid, title, description, category, price, city, state, dateCreated, dateLastModified, views]
-); */
+
    
     res.json({     
       propertyUuid,
@@ -888,7 +909,7 @@ app.post('/api/create-post', async (req, res) => {
 
 // Define the route to handle editing consultant details 
 //Tested with postman and it worked   , city, state, date_created, date_last_modified,
-app.put('/api/edit-property/:propertyUuid',  async (req, res) => {
+app.put('/api/edit-property/:propertyUuid', async (req, res) => {
   try {
     const propertyUuid = req.params.propertyUuid;
     const { title = '', description = '', category = '', price = '', city = '', state = '' } = req.body;
@@ -920,127 +941,6 @@ app.put('/api/edit-property/:propertyUuid',  async (req, res) => {
 
 
 
-// Define the route to handle the image upload
-app.post('/api/profile-image', upload2.single('image'), async (req, res) => {
-  try {
-    const { consultantUuid } = req.body;
-
-    // Verify that the consultantUuid is a valid value
-    if (!consultantUuid) {
-      return res.status(400).json({ error: 'Invalid consultant UUID' });
-    }
-
-    
-
-    // Retrieve the file path of the uploaded image
-    const imageBaseName = req.file ? path.basename(req.file.path) : '';
-    const imageUrl = `/images/${imageBaseName}`;
-
-    const result = await db.query(
-      'INSERT INTO consultants_profile_images (consultant_uuid, image_url) VALUES (?, ?)',
-      [consultantUuid, imageUrl]
-    );
-console.log(result); // Log the database query result
-    res.json({ consultantUuid, imageUrl });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
-  }
-});
-
-// Define the route to handle editing the profile image
-app.put('/api/edit-profile-image/:consultantUuid', upload2.single('image'),  async (req, res) => {
-  try {
-    const consultantUuid = req.params.consultantUuid;  
-    
-    let imageUrl = '';
-    if (req.file) {
-      // Retrieve the file path of the uploaded image
-     // imageUrl = path.basename(req.file.path);
-          // Retrieve the file path of the uploaded image
-      const imageBaseName = req.file ? path.basename(req.file.path) : '';
-      imageUrl = `/images/${imageBaseName}`;
-    } else {
-      // No new image selected, fetch the existing image URL from the database
-      const [row] = await db.query('SELECT image_url FROM consultants_profile_images WHERE consultant_uuid = ?', [consultantUuid]);
-      imageUrl = row ? row.image_url : '';
-      
-    }
-
-    await db.query(
-      'UPDATE consultants_profile_images SET image_url = ? WHERE consultant_uuid = ?',
-      [imageUrl, consultantUuid]
-    );
-
-    res.json({ consultantUuid, imageUrl });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
-  }
-});
-
-
-// Define the route to handle the property image upload
-// Define the route to handle the property image upload
-app.post('/api/property-image', upload2.single('image'), async (req, res) => {
-  try {
-    const { propertyUuid } = req.body;
-
-    // Verify that the propertyUuid is a valid value
-    if (!propertyUuid) {
-      return res.status(400).json({ error: 'Invalid propertyUuid UUID' });
-    }
-
-    // Retrieve the file path of the uploaded image
-    const imageBaseName = req.file ? path.basename(req.file.path) : '';
-    const imageUrl = `/images/${imageBaseName}`;
-
-    const result = await db.query(
-      'INSERT INTO property_profile_images (property_uuid, image_url) VALUES (?, ?)',
-      [propertyUuid, imageUrl]
-    );
-    
-    console.log(result); // Log the database query result
-
-    res.json({ success: true, propertyUuid, imageUrl });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
-});
-
-
-// Define the route to handle editing the property image
-// Define the route to handle editing the property image
-app.put('/api/edit-property-image/:propertyUuid', upload2.single('image'),  async (req, res) => {
-  try {
-    const propertyUuid = req.params.propertyUuid;  
-    
-    let imageUrl = '';
-    if (req.file) {
-      // Retrieve the file path of the uploaded image
-     // imageUrl = path.basename(req.file.path);
-          // Retrieve the file path of the uploaded image
-      const imageBaseName = req.file ? path.basename(req.file.path) : '';
-      imageUrl = `/images/${imageBaseName}`;
-    } else {
-      // No new image selected, fetch the existing image URL from the database
-      const [row] = await db.query('SELECT image_url FROM property_profile_images WHERE property_uuid = ?', [propertyUuid]);
-      imageUrl = row ? row.image_url : '';
-      
-    }
-
-    await db.query(
-      'UPDATE property_profile_images SET image_url = ? WHERE property_uuid = ?',
-      [imageUrl, propertyUuid]
-    );
-
-    res.json({ propertyUuid, imageUrl });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Server Error');
-  }
-});
 
 
 // Register the router with your Express app
@@ -1133,11 +1033,10 @@ app.use((err, req, res, next) => {
 });
 
 
-/*   app.get('*', (req, res) => {
+ app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-});  */ 
-
+}); 
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
