@@ -38,9 +38,9 @@ app.set('trust proxy', true);
 
 app.use(bodyParser.json());
 
-//app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
+app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
-//app.use(history());
+app.use(history());
 
 // Serve static files from the public/images directory
 
@@ -956,11 +956,11 @@ app.use((err, req, res, next) => {
   }
 });
 
-/* 
+
  app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-});  */
+});  
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
