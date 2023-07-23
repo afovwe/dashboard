@@ -15,9 +15,7 @@ import history from 'connect-history-api-fallback';
 
 
 
-
 dotenv.config();
-
 
 // Use Firebase Admin in your Express routes and middleware
 const app = express();
