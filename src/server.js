@@ -569,6 +569,36 @@ app.get('/api/consultant/:emailUsernameCid', authenticate, async (req, res) => {
 });
 
 
+// Search endpoint
+// Search consultants by username_cid or fname
+app.get('/api/search-consultants', authenticate, async (req, res) => {
+  try {
+    const searchTerm = req.query.searchTerm;
+    const searchQuery = `%${searchTerm}%`;
+
+    const query = `
+      SELECT 
+        c.fname AS fullName, c.phone_number AS phoneNumber, c.email,  c.sponsor_cid AS sponsorCid,  c.registration_date AS registrationDate, c.date_birth AS dateBirth, c.city, c.state, cp.secure_url AS imageUrl
+      FROM consultants c
+      LEFT JOIN consultants_profile_image cp ON c.consultant_uuid = cp.consultant_uuid
+      WHERE c.username_cid LIKE ? OR c.fname LIKE ?
+    `;
+
+    const results = await db.query(query, [searchQuery, searchQuery]);
+
+    if (results.length > 0) {
+      res.json(results);
+    } else {
+      res.status(404).json({ message: 'No consultants found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+
+
 /*================================= Network Query=================================*/
 
 
