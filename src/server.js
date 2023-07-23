@@ -38,9 +38,9 @@ app.set('trust proxy', true);
 
 app.use(bodyParser.json());
 
-app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
+//app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
-app.use(history());
+//app.use(history());
 
 // Serve static files from the public/images directory
 
@@ -585,7 +585,20 @@ app.get('/api/search-consultants', authenticate, async (req, res) => {
     const results = await db.query(query, [searchQuery, searchQuery]);
 
     if (results.length > 0) {
-      res.json(results);
+      // Extract the relevant data from each row
+      const consultants = results[0].map((row) => ({
+        fullName: row.fullName,
+        phoneNumber: row.phoneNumber,
+        email: row.email,
+        sponsorCid: row.sponsorCid,
+        registrationDate: row.registrationDate,
+        dateBirth: row.dateBirth,
+        city: row.city,
+        state: row.state,
+        imageUrl: row.imageUrl,
+      }));
+
+      res.json(consultants);
     } else {
       res.status(404).json({ message: 'No consultants found' });
     }
@@ -594,6 +607,7 @@ app.get('/api/search-consultants', authenticate, async (req, res) => {
     res.status(500).json({ error: 'Server Error' });
   }
 });
+
 
 
 
@@ -942,11 +956,11 @@ app.use((err, req, res, next) => {
   }
 });
 
-
+/* 
  app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-}); 
+});  */
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
