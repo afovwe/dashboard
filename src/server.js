@@ -439,6 +439,7 @@ app.get('/api/sponsor-detail/:sponsorCid', authenticate, async (req, res) => {
   }
 });
 
+
 // Define the route to handle Signup
 // Tested with postman and it worked
 app.post('/api/consultants/add-signup', async (req, res) => {
