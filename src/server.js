@@ -610,18 +610,25 @@ app.get('/api/search-consultants', authenticate, async (req, res) => {
 
 
 
-
 /*================================= Network Query=================================*/
-
-
+/*================================= Network Query=================================*/
 
 app.get('/api/downline/:sponsorId', authenticate, async (req, res) => {
   try {
     const sponsorId = req.params.sponsorId;
     const query = `
-      SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId, team_id AS team, rank As level
-      FROM consultants
-      WHERE sponsor_cid = ?
+      SELECT 
+        c.fname AS label, 
+        c.phone_number AS phoneNumber, 
+        c.email, 
+        c.username_cid AS usernameCid, 
+        c.sponsor_cid AS parentId, 
+        c.team_id AS team, 
+        c.rank AS level,
+        p.secure_url AS image  -- Select the secure_url as the image
+      FROM consultants c
+      LEFT JOIN consultants_profile_image p ON c.consultant_uuid = p.consultant_uuid
+      WHERE c.sponsor_cid = ?
     `;
     const [rows] = await db.query(query, [sponsorId]);
 
@@ -629,12 +636,38 @@ app.get('/api/downline/:sponsorId', authenticate, async (req, res) => {
       const consultants = [];
 
       for (const consultant of rows) {
+        const consultantData = {
+          label: consultant.label,
+          type: 'person',  // Add the type property
+          styleClass: 'dsa', // Add the styleClass property
+          expanded: true, // Add the expanded property
+          data: [
+            {
+              image: consultant.image,  
+              name: consultant.email
+            }
+          ],
+          children: [], // Will be populated with sub-consultants in the next loop
+        };
+
         const downlines = await getDownlines(consultant.usernameCid);
-        consultant.downlines = downlines;
-        consultants.push(consultant);
+        consultantData.children = downlines;
+        delete consultant.downlines;
+        consultants.push(consultantData);
       }
 
-      res.json(consultants);
+      // Create the data array with the required structure
+      const data = [
+        {
+         label: 'You', // You can set any label for the root node
+          type: 'person',  // Add the type property
+          styleClass: 'dsa2', // Add the styleClass property
+          expanded: true, // Add the expanded property
+          children: consultants,
+        },
+      ];
+
+      res.json(data);
     } else {
       res.status(404).json({ message: 'No consultants found for the given sponsor ID' });
     }
@@ -644,10 +677,23 @@ app.get('/api/downline/:sponsorId', authenticate, async (req, res) => {
   }
 });
 
-async function getDownlines(parentId) {
+async function getDownlines(parentId, maxDepth = 3, styleClass = 'dsa1') {
+  if (maxDepth === 0) {
+    return []; // Return an empty array when reaching the maximum depth
+  }
+
   const downlineQuery = `
-    SELECT fname AS fullName, phone_number AS phoneNumber, email, username_cid AS usernameCid, sponsor_cid AS parentId, team_id AS team, rank As level
-    FROM consultants
+    SELECT 
+      c.fname AS label, 
+      c.phone_number AS phoneNumber, 
+      c.email, 
+      c.username_cid AS usernameCid, 
+      c.sponsor_cid AS parentId, 
+      c.team_id AS team, 
+      c.rank AS level,
+      p.secure_url AS image  -- Select the secure_url as the image
+    FROM consultants c
+    LEFT JOIN consultants_profile_image p ON c.consultant_uuid = p.consultant_uuid
     WHERE sponsor_cid = ?
   `;
 
@@ -656,13 +702,40 @@ async function getDownlines(parentId) {
   const downlines = [];
 
   for (const downline of downlineRows) {
-    const subDownlines = await getDownlines(downline.usernameCid);
-    downline.downlines = subDownlines;
-    downlines.push(downline);
+    let downlineStyleClass = styleClass;
+    
+    // Apply different styleClass based on generation
+    if (maxDepth === 2) {
+      downlineStyleClass = 'algo1';
+    } else if (maxDepth === 1) {
+      downlineStyleClass = 'tail';
+    }
+
+    const downlineData = {
+      label: downline.label,
+      type: 'person',
+      styleClass: downlineStyleClass,
+      expanded: true,
+      data: [
+        {
+          image: downline.image,  
+          name: downline.email
+        }
+      ],
+      children: [], // Will be populated with sub-downlines in the next loop
+    };
+
+    const subDownlines = await getDownlines(downline.usernameCid, maxDepth - 1, downlineStyleClass);
+    downlineData.children = subDownlines;
+    delete downline.downlines;
+    downlines.push(downlineData);
   }
 
   return downlines;
 }
+
+
+
 
 
 
