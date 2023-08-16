@@ -11,6 +11,8 @@ import { validationResult } from 'express-validator';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 import history from 'connect-history-api-fallback';
 
 
@@ -438,6 +440,75 @@ app.get('/api/sponsor-detail/:sponsorCid', authenticate, async (req, res) => {
 });
 
 
+
+
+// When generating a verification code, also calculate the expiry timestamp
+const generateVerificationCode = () => {
+  const randomBytes = crypto.randomBytes(2);
+  const code = (randomBytes[0] << 8) | randomBytes[1];
+  const expiryTimestamp = Date.now() + (5 * 60 * 1000); // Code expires in 5 minutes
+  return { code: (code % 9000) + 1000, expiryTimestamp };
+};
+
+
+// Send mail function
+const sendVerificationEmail = (toEmail, verificationCode, action) => {
+
+  let message = '';
+  if (action === 'signup') {
+    message = `<p>Congratulations! Your Realtor Express Squad Account has been created!</p>
+              <p>Please use this code to verify your email address.</p>`;
+  } else if (action === 'generate') {
+    message =  `<p>See Your New verification code: </p>`;
+  } else if (action === 'regenerate') {
+    message =  `<p>See Your Newly regenerated verification code: </p>`;
+  }
+  // Calculate the activation link
+  const activationLink = `http://localhost:3000/api/verify-email?email=${encodeURIComponent(toEmail)}&verificationCode=${verificationCode}`;
+
+
+  // Create a transporter using the default SMTP transport
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: 'realtorexpressakpadaka@gmail.com',
+      pass: 'teuhqhkhgtnqiezl'
+    }
+  });
+
+  const mailOptions = {
+    from: 'realtorexpressakpadaka.com',
+    to: toEmail,
+    subject: 'Realtor Express Squad Verification Code',
+    html: `
+      <html>
+      <head>
+        <style>
+          /* Your CSS styles */
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Realtor Express Squad</h1>
+          <p>${message}</p>       
+          <p><strong>${verificationCode}</strong></p>
+
+          <p>Or click the link below:</p>
+          <p><a href="${activationLink}">Activate Account Now</a></p>
+          <p>Or, if you cannot see a link, copy and paste the following URL into your web browser's URL bar:</p>
+          <p>${activationLink}</p>
+          <p>Please email us at support@realtorexpressakpadaka.com if you have any questions.</p>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  return transporter.sendMail(mailOptions);
+};
+
+
+    
 // Define the route to handle Signup
 // Tested with postman and it worked
 app.post('/api/consultants/add-signup', async (req, res) => {
@@ -472,25 +543,167 @@ app.post('/api/consultants/add-signup', async (req, res) => {
     const minute = date_ob.getMinutes();
     const seconds = date_ob.getSeconds();
     const registrationDate = `${year}-${(month < 10 ? '0' + month : month)}-${(date < 10 ? '0' + date : date)} ${hour}:${minute}`;
-
+    // Generate a verification code
+      // Generate a verification code and expiry timestamp
+    const { code: verificationCode, expiryTimestamp } = generateVerificationCode();
+    
+    
     await db.query(
-      'INSERT INTO consultants (consultant_uuid, fname, phone_number, email, username_cid, sponsor_cid, password, registration_date, city, team_id, rank) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO consultants (consultant_uuid, fname, phone_number, email, username_cid, sponsor_cid, password, registration_date, city, team_id, `rank`, verification_code, expiry_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, hashedPassword, registrationDate, city, teamId, rank,
+        consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, hashedPassword, registrationDate, city, teamId, rank, verificationCode, new Date(expiryTimestamp)
       ]
     );
-
-    res.json({
-      consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, registrationDate, gender, city, teamId, rank,
-    });
+    
+    const action = 'signup'; // Define the action here
+  // Send verification email and handle errors
+    await sendVerificationEmail(email, verificationCode, action)
+      .then(() => {
+        res.json({
+          consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, registrationDate, gender, city, teamId, rank,
+        });
+      })
+      .catch((error) => {
+        console.error('Error sending verification email:', error);
+        res.status(500).send('Error sending verification email');
+      });
   } catch (error) {
     console.error(error);
     res.status(500).send('Server Error');
   }
 });
 
-// Route to handle login
+// Verification  immediately after registration 
+//verification code copied and pasted onn the form
+// Tested with postman is working
+app.post('/api/verify-email/:email', async (req, res) => {
+  try {
+    const { email } = req.params; // Get email from URL parameter
+    const { verificationCode } = req.body; // Get verification code from form field
 
+    // Fetch the stored verification code from the database using the user's email
+    const [user] = await db.query('SELECT verification_code FROM consultants WHERE email = ?', [email]);
+
+    // Check if the user exists and if the verification code matches
+    if (!user || !user[0].verification_code || parseInt(user[0].verification_code) !== verificationCode) {
+      return res.status(400).json({ error: 'Invalid verification code' });
+    }
+
+    // Mark the user's email as verified in the database
+    await db.query('UPDATE consultants SET is_verified = 1 WHERE email = ?', [email]);
+
+    res.json({ message: 'Email verified successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+// verification email done via url clicked or copied
+// Tested with postman is working
+app.get('/api/verify-email', async (req, res) => {
+  try {
+    const { email, verificationCode } = req.query;
+    
+    // Fetch the stored verification code from the database using the user's email
+    const [user] = await db.query('SELECT verification_code FROM consultants WHERE email = ?', [email]);
+	 
+    // Check if the user exists and if the verification code matches
+    if (!user || !user[0].verification_code || parseInt(user[0].verification_code) !== parseInt(verificationCode)) {
+      return res.status(400).json({ error: 'Invalid verification code' });
+    }
+
+    // Mark the user's email as verified in the database
+    await db.query('UPDATE consultants SET is_verified = 1 WHERE email = ?', [email]);
+    // Redirect the user to a success page or display a success message
+    // You can customize the response based on your application's UI
+    res.send('Email verified successfully');
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Define the route to generate a new verification code for an email
+app.post('/api/generate-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Calculate the expiry time in minutes (1 minute from now)
+    const expiryTimeInMinutes = 1; // Change this value if needed
+
+    // Calculate the expiration timestamp by adding the expiry time to the current time
+    const expiryTimestamp = new Date(Date.now() + expiryTimeInMinutes * 60 * 1000);
+
+    // Log the calculated expiration time in minutes
+    console.log('Expiration Time in Minutes:', expiryTimeInMinutes);
+    
+    // Generate a new verification code
+    const { code: verificationCode } = generateVerificationCode();
+
+    // Update the database with the new verification code and expiry timestamp
+    await db.query(
+      'UPDATE consultants SET verification_code = ?, expiry_timestamp = ? WHERE email = ?',
+      [verificationCode, expiryTimestamp, email]
+    );
+    const action = 'generate'; // Define the action here
+    // Send verification email and handle errors
+    await sendVerificationEmail(email, verificationCode, action)
+      .then(() => {
+        res.json({ message: 'New verification code generated and sent successfully' });
+      })
+      .catch((error) => {
+        console.error('Error sending verification email:', error);
+        res.status(500).send('Error sending verification email');
+      });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// Define the route to regenerate a verification code and timestamp for an email
+app.get('/api/regenerate-code/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    // Calculate the expiry time in minutes (3 minutes from now)
+    const expiryTimeInMinutes = 3; // Changed to 3 minutes
+
+    // Calculate the expiration timestamp by adding the expiry time to the current time
+    const expiryTimestamp = new Date(Date.now() + expiryTimeInMinutes * 60 * 1000);
+
+    // Log the calculated expiration time in minutes
+    console.log('Expiration Time in Minutes:', expiryTimeInMinutes);
+
+    // Generate a new verification code
+    const { code: verificationCode } = generateVerificationCode();
+
+    // Update the database with the new verification code and expiry timestamp
+    await db.query(
+      'UPDATE consultants SET verification_code = ?, expiry_timestamp = ? WHERE email = ?',
+      [verificationCode, expiryTimestamp, email]
+    );
+    const action = 'regenerate'; // Define the action here
+    // Send verification email and handle errors
+    await sendVerificationEmail(email, verificationCode, action)
+      .then(() => {
+        res.json({ message: 'New verification code generated and sent successfully' });
+      })
+      .catch((error) => {
+        console.error('Error sending verification email:', error);
+        res.status(500).send('Error sending verification email');
+      });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// Route to handle login
+// Route to handle login
 app.post('/api/consultants/login', async (req, res) => {
   try {
     // Validate request body
@@ -507,13 +720,18 @@ app.post('/api/consultants/login', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if the email is verified
+    if (user[0].is_verified !== 1) {
+      return res.status(403).json({ error: 'Email not verified yet' });
+    }
+
     // Check if the provided password matches the hashed password
     const isPasswordValid = bcryptjs.compareSync(password, user[0].password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid password' });
     }
 
-    // If the password is valid, proceed with the login logic
+    // If the password is valid and the email is verified, proceed with the login logic
     const secretKey = process.env.JWT_SECRET;
     // Generate a JWT token with the user's ID and role
     const token = jwt.sign(
@@ -533,7 +751,6 @@ app.post('/api/consultants/login', async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
-
 
 //const router = express.Router();  // for now
 // Register the router with your Express app
@@ -733,9 +950,6 @@ async function getDownlines(parentId, maxDepth = 3, styleClass = 'dsa1') {
 
   return downlines;
 }
-
-
-
 
 
 
@@ -984,6 +1198,7 @@ app.put('/api/profile-image/:consultantUuid', upload.single('image'), async func
   }
 });
 
+
 //Get Downlines
 // Endpoint to retrieve downline
 // Update your code to use the executeQuery function
@@ -1009,7 +1224,104 @@ app.get('/api/downline/:sponsorId',  authenticate, async (req, res) => {
 });
 
 
-/*===================================ENDS CONSULTANT ROUTES====================================== */
+/*===================================ENDS CONSULTANT ROUTES AND TEAM ROUTES STARTS ====================================== */
+
+
+// Insert new team data 
+app.post('/api/teams', async (req, res) => {
+  try {
+    const { name, teamLeader } = req.body; // Assuming you're sending the team name in the request body
+
+    const query = 'INSERT INTO team (name, team_leader) VALUES (?, ?)'; // Replace with your table name and columns
+    const result = await db.query(query, [name, teamLeader]);
+
+    res.json({ message: 'Team inserted successfully', insertId: result.insertId });
+  } catch (error) {
+    console.error('Error inserting team:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update team data by ID
+// Update team data by ID
+app.put('/api/teams/:id', async (req, res) => {
+  try {
+    const teamId = req.params.id;
+    const { name, teamLeader } = req.body; // Assuming you're sending the updated team name and teamLeader in the request body
+
+    const query = 'UPDATE team SET name = ?, team_leader = ? WHERE id = ?'; // Replace with your table name and columns
+    const result = await db.query(query, [name, teamLeader, teamId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    res.json({ message: 'Team updated successfully' });
+  } catch (error) {
+    console.error('Error updating team:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+// Get team data by ID
+app.get('/api/teams/:id', async (req, res) => {
+  try {
+    const teamId = req.params.id;
+
+    // Query the database to retrieve team data by ID
+    const result = await db.query('SELECT * FROM team WHERE id = ?', [teamId]);
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    const teamData = result[0];
+    res.json(teamData);
+  } catch (err) {
+    console.error('Error retrieving team data:', err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+
+
+
+// Delete team data by ID
+app.delete('/api/teams/:id', async (req, res) => {
+  try {
+    const teamId = req.params.id;
+
+    const query = 'DELETE FROM team WHERE id = ?'; // Replace with your table name and columns
+    const result = await db.query(query, [teamId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    res.json({ message: 'Team deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting team:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Route to get all teams
+app.get('/api/teams', async (req, res) => {
+  try {
+    const query = 'SELECT * FROM team'; // Replace with your table name
+    const [teams, _] = await db.query(query);
+
+    res.json(teams);
+  } catch (error) {
+    console.error('Error retrieving teams:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+
+
 
 // Register the router with your Express app
 //app.use('/api', router);
@@ -1029,11 +1341,10 @@ app.use((err, req, res, next) => {
   }
 });
 
-
- app.get('*', (req, res) => {
+  app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-});  
+});   
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
