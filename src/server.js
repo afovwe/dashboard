@@ -13,7 +13,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import history from 'connect-history-api-fallback';
+//import history from 'connect-history-api-fallback';
 
 
 
@@ -42,7 +42,7 @@ app.use(bodyParser.json());
 
 app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
-app.use(history());
+//app.use(history());
 
 // Serve static files from the public/images directory
 
@@ -451,6 +451,10 @@ const generateVerificationCode = () => {
   return { code: (code % 9000) + 1000, expiryTimestamp };
 };
 
+function generateResetToken() {
+  const tokenLength = 40; // Set the desired token length
+  return crypto.randomBytes(tokenLength).toString('hex');
+}
 
 // Send mail function
 const sendVerificationEmail = (toEmail, verificationCode, action) => {
@@ -1225,6 +1229,40 @@ app.get('/api/downline/:sponsorId',  authenticate, async (req, res) => {
   }
 });
 
+// Define the route to handle password change
+app.post('/api/consultants/change-password/:consultantUuid', authenticate, async (req, res) => {
+  try {
+    const consultantUuid = req.params.consultantUuid; // Get the consultantUuid from route parameters
+    const { oldPassword, newPassword } = req.body;
+
+    // Retrieve the consultant's current hashed password
+    const [consultantData] = await db.query('SELECT * FROM consultants WHERE consultant_uuid = ?', [consultantUuid]);
+
+    if (consultantData.length === 0) {
+      return res.status(404).json({ error: 'Consultant not found' });
+    }
+
+    const { password: currentHashedPassword } = consultantData[0];
+
+    // Compare the provided old password with the current hashed password
+    const passwordsMatch = await bcryptjs.compare(oldPassword, currentHashedPassword);
+
+    if (!passwordsMatch) {
+      return res.status(400).json({ error: 'Old password is incorrect' });
+    }
+
+    // Hash the new password
+    const newHashedPassword = await bcryptjs.hash(newPassword, 10);
+
+    // Update the password in the database
+    await db.query('UPDATE consultants SET password = ? WHERE consultant_uuid = ?', [newHashedPassword, consultantUuid]);
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
 
 /*===================================ENDS CONSULTANT ROUTES AND TEAM ROUTES STARTS ====================================== */
 
@@ -1344,10 +1382,10 @@ app.use((err, req, res, next) => {
 });
 
 
- app.get('*', (req, res) => {
+/*  app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-});  
+});  */ 
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
