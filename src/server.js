@@ -192,6 +192,7 @@ app.post('/api/property-image', upload.single('image'), async function (req, res
       message: 'image Uploaded and inserted into the database!',
       data: result
     });
+
   } catch (error) {
     console.log(error);
     res.status(500).json({
@@ -720,6 +721,7 @@ app.post('/api/consultants/login', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    
     // Check if the email is verified
     if (user[0].is_verified !== 1) {
       return res.status(403).json({ error: 'Email not verified yet' });
@@ -1341,10 +1343,11 @@ app.use((err, req, res, next) => {
   }
 });
 
-  app.get('*', (req, res) => {
+
+ app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-});   
+});  
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
