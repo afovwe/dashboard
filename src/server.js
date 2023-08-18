@@ -469,7 +469,14 @@ const sendVerificationEmail = (toEmail, verificationCode, action) => {
     message =  `<p>See Your Newly regenerated verification code: </p>`;
   }
   // Calculate the activation link
-  const activationLink = `http://localhost:3000/api/verify-email?email=${encodeURIComponent(toEmail)}&verificationCode=${verificationCode}`;
+/*   const encodedEmail = encodeURIComponent(toEmail);
+  const encodedResetToken = encodeURIComponent(resetToken);
+  const resetLink = `http://localhost:4200/reset-password/${encodedResetToken}/${encodedEmail}`;
+  const resetLink = `http://localhost:4200/verify-email/${encodedResetToken}/${encodedEmail}`;
+  */
+  const encodedEmail = encodeURIComponent(toEmail);
+  const encodedverificationCode = encodeURIComponent(verificationCode)  
+  const activationLink = `http://localhost:4200/verify-email?email=${encodedEmail}&verificationCode=${encodedverificationCode}`;
 
 
   // Create a transporter using the default SMTP transport
@@ -511,7 +518,6 @@ const sendVerificationEmail = (toEmail, verificationCode, action) => {
 
   return transporter.sendMail(mailOptions);
 };
-
 
     
 // Define the route to handle Signup
@@ -579,7 +585,7 @@ app.post('/api/consultants/add-signup', async (req, res) => {
 });
 
 // Verification  immediately after registration 
-//verification code copied and pasted onn the form
+//verification code copied and pasted on the form
 // Tested with postman is working
 app.post('/api/verify-email/:email', async (req, res) => {
   try {
@@ -707,6 +713,162 @@ app.get('/api/regenerate-code/:email', async (req, res) => {
 });
 
 
+// Create a transporter using the default SMTP transport
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'realtorexpressakpadaka@gmail.com',
+    pass: 'teuhqhkhgtnqiezl'
+  }
+});
+
+// Send password reset token email
+const sendPasswordResetEmail = (toEmail, resetToken) => {
+  
+  const encodedEmail = encodeURIComponent(toEmail);
+  const encodedResetToken = encodeURIComponent(resetToken);
+  const resetLink = `http://localhost:4200/reset-password/${encodedResetToken}/${encodedEmail}`;
+  const mailOptions = {
+    from: 'realtorexpressakpadaka.com',
+    to: toEmail,
+    subject: 'Realtor Express Squad Password Reset',
+    html: `
+    <html>
+    <head>
+      <style>
+        /* Your CSS styles */
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Realtor Express Squad</h1>
+        <p>You have requested to reset your password.</p> 
+        <p>Click the link below to reset your password:</p>
+        <p><strong><a href="${resetLink}">Reset Password</a></strong></p>
+        <p>Or, if you cannot see a link, copy and paste the following URL into your web browser's URL bar:</p>
+        <p><strong>${resetLink}</strong></p>
+        <p>If you did not request a password reset, please ignore this email.</p>
+
+        <p>Please email us at support@realtorexpressakpadaka.com if you have any questions.</p>
+      </div>
+    </body>
+    </html>
+  `
+  };
+
+  transporter.sendMail(mailOptions)
+    .then(info => {
+      console.log('Email sent:', info.response);
+    })
+    .catch(error => {
+      console.log('Error sending email:', error);
+    });
+};
+
+
+ 
+ const RESET_TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+// Define the route to request password reset
+app.post('/api/consultants/request-password-reset', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Check if the email exists in the database
+    const [existingEmail] = await db.query('SELECT * FROM consultants WHERE email = ?', [email]);
+
+    if (existingEmail.length === 0) {
+      return res.status(404).json({ error: 'Consultant with this email not found' });
+    }
+
+    const consultantUuid = existingEmail[0].consultant_uuid;
+
+    // Generate a password reset token
+    const resetToken = generateResetToken();
+
+    // Store the reset token and its expiry timestamp in the database
+    const expiryTimestamp = Date.now() + RESET_TOKEN_EXPIRY; // Set an appropriate expiry time
+    await db.query('UPDATE consultants SET reset_token = ?, expiry_timestamp = ? WHERE consultant_uuid = ?', [resetToken, new Date(expiryTimestamp), consultantUuid]);
+
+    // Send reset instructions via email
+    try {
+      sendPasswordResetEmail(email, resetToken);
+      res.json({ message: 'Password reset instructions sent successfully' });
+    } catch (error) {
+      console.error('Error sending password reset instructions:', error);
+      res.status(500).send('Error sending password reset instructions');
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// Define the route to handle password change using reset token and form url
+// Define the route to handle password change using reset token and email from the URL
+app.post('/api/consultants/reset-password/:resetToken/:email', async (req, res) => {
+  try {
+    const { resetToken, email } = req.params;
+    const { newPassword } = req.body;
+
+    // Check if the reset token and email match in the database
+    const [existingToken] = await db.query('SELECT * FROM consultants WHERE reset_token = ? AND email = ?', [resetToken, email]);
+
+    if (existingToken.length === 0) {
+      return res.status(404).json({ error: 'Reset token not found or email mismatch' });
+    }
+
+    // Check if the reset token is expired
+    if (existingToken[0].reset_token_expiry <= new Date()) {
+      return res.status(400).json({ error: 'Reset token has expired' });
+    }
+
+    // Hash the new password
+    const newHashedPassword = await bcryptjs.hash(newPassword, 10);
+
+    // Update the password in the database and clear the reset token fields
+    await db.query('UPDATE consultants SET password = ?, reset_token = NULL, expiry_timestamp = NULL WHERE reset_token = ? AND email = ?', [newHashedPassword, resetToken, email]);
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Define the route to handle password change using reset token in the form
+app.post('/api/consultants/reset-password/:email', async (req, res) => {
+  try {
+    const { email } = req.params; // Get email from URL parameter
+    const { resetToken, newPassword } = req.body;
+
+    // Check if the reset token exists in the database
+    const [existingToken] = await db.query('SELECT * FROM consultants WHERE reset_token = ? AND email = ?', [resetToken, email]);
+
+    if (existingToken.length === 0) {
+      return res.status(404).json({ error: 'Reset token not found or email mismatch' });
+    }
+
+    // Check if the reset token is expired
+    if (existingToken[0].reset_token_expiry <= new Date()) {
+      return res.status(400).json({ error: 'Reset token has expired' });
+    }
+
+    // Hash the new password
+    const newHashedPassword = await bcryptjs.hash(newPassword, 10);
+
+    // Update the password in the database and clear the reset token fields
+    await db.query('UPDATE consultants SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE email = ?', [newHashedPassword, email]);
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
 // Route to handle login
 // Route to handle login
 app.post('/api/consultants/login', async (req, res) => {
@@ -760,9 +922,6 @@ app.post('/api/consultants/login', async (req, res) => {
 
 //const router = express.Router();  // for now
 // Register the router with your Express app
-
-
-
 // Get consultant by email or username_cid
 app.get('/api/consultant/:emailUsernameCid', authenticate, async (req, res) => {
   try {
@@ -1229,6 +1388,7 @@ app.get('/api/downline/:sponsorId',  authenticate, async (req, res) => {
   }
 });
 
+
 // Define the route to handle password change
 app.post('/api/consultants/change-password/:consultantUuid', authenticate, async (req, res) => {
   try {
@@ -1263,6 +1423,7 @@ app.post('/api/consultants/change-password/:consultantUuid', authenticate, async
     res.status(500).send('Server Error');
   }
 });
+
 
 /*===================================ENDS CONSULTANT ROUTES AND TEAM ROUTES STARTS ====================================== */
 
