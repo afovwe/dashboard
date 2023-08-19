@@ -469,14 +469,9 @@ const sendVerificationEmail = (toEmail, verificationCode, action) => {
     message =  `<p>See Your Newly regenerated verification code: </p>`;
   }
   // Calculate the activation link
-/*   const encodedEmail = encodeURIComponent(toEmail);
-  const encodedResetToken = encodeURIComponent(resetToken);
-  const resetLink = `http://localhost:4200/reset-password/${encodedResetToken}/${encodedEmail}`;
-  const resetLink = `http://localhost:4200/verify-email/${encodedResetToken}/${encodedEmail}`;
-  */
   const encodedEmail = encodeURIComponent(toEmail);
   const encodedverificationCode = encodeURIComponent(verificationCode)  
-  const activationLink = `http://localhost:4200/verify-email?email=${encodedEmail}&verificationCode=${encodedverificationCode}`;
+  const activationLink = `http://localhost:4200/verify-by-link?email=${encodedEmail}&verificationCode=${encodedverificationCode}`;
 
 
   // Create a transporter using the default SMTP transport
@@ -501,11 +496,9 @@ const sendVerificationEmail = (toEmail, verificationCode, action) => {
       </head>
       <body>
         <div class="container">
-          <h1>Realtor Express Squad</h1>
+          <h1>Verify Your Realtor Express Squad Email</h1>
           <p>${message}</p>       
-          <p><strong>${verificationCode}</strong></p>
-
-          <p>Or click the link below:</p>
+          <p>click the link below:</p>
           <p><a href="${activationLink}">Activate Account Now</a></p>
           <p>Or, if you cannot see a link, copy and paste the following URL into your web browser's URL bar:</p>
           <p>${activationLink}</p>
@@ -524,65 +517,54 @@ const sendVerificationEmail = (toEmail, verificationCode, action) => {
 // Tested with postman and it worked
 app.post('/api/consultants/add-signup', async (req, res) => {
   try {
-    const { phoneNumber = '', email = '', password = '' } = req.body;
+    const { fullName, phoneNumber, email, password, gender, teamId, rank, sponsorCid, city } = req.body;
 
-    // Check if phone number already exists
-    const [existingPhoneNumber] = await db.query('SELECT * FROM consultants WHERE phone_number = ?', [phoneNumber]);
-    if (existingPhoneNumber.length > 0) {
-      return res.status(400).json({ error: 'User with this phone number already exists' });
-    }
+    // Check if user with the provided phone_number or email already exists
+    const [existingUser] = await db.query(
+      'SELECT * FROM consultants WHERE phone_number = ? OR email = ?',
+      [phoneNumber, email]
+    );
 
-    // Check if email already exists
-    const [existingEmail] = await db.query('SELECT * FROM consultants WHERE email = ?', [email]);
-    if (existingEmail.length > 0) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+    if (existingUser.length > 0) {
+      if (existingUser.some(user => user.phone_number === phoneNumber)) {
+        return res.status(400).send('User with this phone number already exists');
+      }
+      if (existingUser.some(user => user.email === email)) {
+        return res.status(400).send('User with this email already exists');
+      }
     }
 
     // Hash the password
     const hashedPassword = await bcryptjs.hash(password, 10);
 
-    // Continue with the rest of the code
-    const consultantUuid = uuidv4();
-    const { fullName = '', sponsorCid = '', gender = '', city = '', teamId = '', rank = '' } = req.body;
-    const usernameCid = 'req' + phoneNumber;
-    const ts = Date.now();
-    const date_ob = new Date(ts);
-    const date = date_ob.getDate();
-    const month = date_ob.getMonth() + 1;
-    const year = date_ob.getFullYear();
-    const hour = date_ob.getHours();
-    const minute = date_ob.getMinutes();
-    const seconds = date_ob.getSeconds();
-    const registrationDate = `${year}-${(month < 10 ? '0' + month : month)}-${(date < 10 ? '0' + date : date)} ${hour}:${minute}`;
-    // Generate a verification code
-      // Generate a verification code and expiry timestamp
+    // Generate UUID, username_cid, and registration_date
+	const consultantUuid = uuidv4();       
+	const usernameCid = 'req' + phoneNumber;
+    const registrationDate = new Date().toISOString().slice(0, 10);
+
+    // Generate verification code and expiry timestamp
     const { code: verificationCode, expiryTimestamp } = generateVerificationCode();
-    
-    
+
+    // Insert user data into the database
     await db.query(
-      'INSERT INTO consultants (consultant_uuid, fname, phone_number, email, username_cid, sponsor_cid, password, registration_date, city, team_id, `rank`, verification_code, expiry_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO consultants (consultant_uuid, fname, phone_number, email, username_cid, sponsor_cid, password, registration_date, city, team_id,  `rank`, gender, verification_code, expiry_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, hashedPassword, registrationDate, city, teamId, rank, verificationCode, new Date(expiryTimestamp)
+        consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, hashedPassword, registrationDate, city, teamId, rank, gender, verificationCode, new Date(expiryTimestamp),
       ]
     );
+
+    // Send verification email
+	 const action = 'signup'; // Define the action here
+    await sendVerificationEmail(email, verificationCode, action);
+    // Return success response
     
-    const action = 'signup'; // Define the action here
-  // Send verification email and handle errors
-    await sendVerificationEmail(email, verificationCode, action)
-      .then(() => {
-        res.json({
-          consultantUuid, fullName, phoneNumber, email, usernameCid, sponsorCid, registrationDate, gender, city, teamId, rank,
-        });
-      })
-      .catch((error) => {
-        console.error('Error sending verification email:', error);
-        res.status(500).send('Error sending verification email');
-      });
+    return res.status(201).json({ message: 'User signed up successfully.' });
   } catch (error) {
     console.error(error);
-    res.status(500).send('Server Error');
+    return res.status(500).send('An error occurred while signing up.');
   }
 });
+
 
 // Verification  immediately after registration 
 //verification code copied and pasted on the form
