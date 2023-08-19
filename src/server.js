@@ -13,7 +13,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-//import history from 'connect-history-api-fallback';
+import history from 'connect-history-api-fallback';
 
 
 
@@ -42,7 +42,7 @@ app.use(bodyParser.json());
 
 app.use(express.static(path.resolve(__dirname, '../dist/realtor_exp_frontend'), { maxAge: '1y', etag: false }));
 
-//app.use(history());
+app.use(history());
 
 // Serve static files from the public/images directory
 
@@ -471,7 +471,7 @@ const sendVerificationEmail = (toEmail, verificationCode, action) => {
   // Calculate the activation link
   const encodedEmail = encodeURIComponent(toEmail);
   const encodedverificationCode = encodeURIComponent(verificationCode)  
-  const activationLink = `http://localhost:4200/verify-by-link?email=${encodedEmail}&verificationCode=${encodedverificationCode}`;
+  const activationLink = `https://bearded-backbacon-83842-f47241e39fbd.herokuapp.com/verify-by-link?email=${encodedEmail}&verificationCode=${encodedverificationCode}`;
 
 
   // Create a transporter using the default SMTP transport
@@ -709,7 +709,7 @@ const sendPasswordResetEmail = (toEmail, resetToken) => {
   
   const encodedEmail = encodeURIComponent(toEmail);
   const encodedResetToken = encodeURIComponent(resetToken);
-  const resetLink = `http://localhost:4200/reset-password/${encodedResetToken}/${encodedEmail}`;
+  const resetLink = `https://bearded-backbacon-83842-f47241e39fbd.herokuapp.com/reset-password/${encodedResetToken}/${encodedEmail}`;
   const mailOptions = {
     from: 'realtorexpressakpadaka.com',
     to: toEmail,
@@ -1525,10 +1525,10 @@ app.use((err, req, res, next) => {
 });
 
 
-/*  app.get('*', (req, res) => {
+ app.get('*', (req, res) => {
   //res.sendFile(path.join(__dirname, '../dist/index.html'));
   res.sendFile(path.join(__dirname, '../dist/realtor_exp_frontend/index.html'));
-});  */ 
+});  
 // start the server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
